@@ -628,8 +628,10 @@ const ensureUserClientIdConsistency = () => {
 ensureUserClientIdConsistency();
 
 // Initialize WhatsApp client via Baileys
-export let waClient = await createBaileysClient();
+// Using USER_WA_CLIENT_ID for the single WhatsApp client
 export let waUserClient = await createBaileysClient(env.USER_WA_CLIENT_ID);
+// For backward compatibility, export waUserClient as waClient too
+export let waClient = waUserClient;
 
 const logClientIdIssue = (envVar, issueMessage) => {
   console.error(`[WA] ${envVar} ${issueMessage}; clientId harus unik.`);
@@ -941,8 +943,9 @@ function snapshotReadinessState({ readinessState, client, observedState = null }
 }
 
 function getWaReadinessSummarySync() {
+  // waClient and waUserClient now point to the same instance
+  // Keep both keys for backward compatibility
   const clientEntries = [
-    { key: "wa", client: waClient, label: "WA" },
     { key: "waUser", client: waUserClient, label: "WA-USER" },
   ];
 
@@ -951,6 +954,8 @@ function getWaReadinessSummarySync() {
     const readinessState = getClientReadinessState(client, label);
     clients[key] = snapshotReadinessState({ readinessState, client });
   });
+  // Duplicate waUser as wa for backward compatibility
+  clients.wa = clients.waUser;
 
   return {
     shouldInitWhatsAppClients,
@@ -961,7 +966,6 @@ function getWaReadinessSummarySync() {
 export async function getWaReadinessSummary() {
   const summary = getWaReadinessSummarySync();
   const clientEntries = [
-    { key: "wa", client: waClient },
     { key: "waUser", client: waUserClient },
   ];
 
@@ -1029,7 +1033,6 @@ function startReadinessDiagnosticsLogger() {
   }, readinessDiagnosticsIntervalMs).unref?.();
 }
 
-registerClientReadiness(waClient, "WA");
 registerClientReadiness(waUserClient, "WA-USER");
 
 export function queueAdminNotification(message) {
@@ -1156,8 +1159,8 @@ export function waitForWaReady(timeoutMs) {
 }
 
 // Expose readiness helper for consumers like safeSendMessage
-waClient.waitForWaReady = () => waitForClientReady(waClient);
 waUserClient.waitForWaReady = () => waitForClientReady(waUserClient);
+// waClient is an alias to waUserClient, so it inherits the same method
 
 // Pastikan semua pengiriman pesan menunggu hingga client siap
 function wrapSendMessage(client) {
@@ -1250,7 +1253,6 @@ function wrapSendMessage(client) {
     });
   };
 }
-wrapSendMessage(waClient);
 wrapSendMessage(waUserClient);
 
 /**
@@ -1258,7 +1260,7 @@ wrapSendMessage(waUserClient);
  * This ensures all messages have been sent before the caller continues
  */
 export async function waitForAllMessageQueues() {
-  const clients = [waClient, waUserClient];
+  const clients = [waUserClient];
   const idlePromises = [];
   
   for (const client of clients) {
@@ -4029,37 +4031,19 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
   };
 }
 
-const handleMessage = createHandleMessage(waClient, {
-  allowUserMenu: false,
-  clientLabel: "[WA]",
-});
+// waClient and waUserClient are now the same instance
+// Enable user menu for all messages
 const handleUserMessage = createHandleMessage(waUserClient, {
   allowUserMenu: true,
   clientLabel: "[WA-USER]",
 });
 
-registerClientMessageHandler(waClient, "wwebjs", handleMessage);
 registerClientMessageHandler(waUserClient, "wwebjs-user", handleUserMessage);
 
 if (shouldInitWhatsAppClients) {
   startReadinessDiagnosticsLogger();
   writeWaStructuredLog("info", buildWaStructuredLog({ label: "WA", event: "wa_message_listener_attach_start" }));
   
-  waClient.on('message', (msg) => {
-    writeWaStructuredLog(
-      "debug",
-      buildWaStructuredLog({
-        clientId: waClient?.clientId || null,
-        label: "WA",
-        event: "message_received",
-        jid: msg?.from || null,
-        messageId: msg?.id?._serialized || msg?.id?.id || null,
-      }),
-      { debugOnly: true }
-    );
-    handleIncoming('baileys', msg, handleMessage);
-  });
-
   waUserClient.on('message', (msg) => {
     const from = msg.from || '';
     if (from.endsWith('@g.us') || from === 'status@broadcast') {
@@ -4096,7 +4080,6 @@ if (shouldInitWhatsAppClients) {
     buildWaStructuredLog({
       label: "WA",
       event: "wa_message_listener_count",
-      waClientCount: waClient.listenerCount('message'),
       waUserClientCount: waUserClient.listenerCount('message'),
     }),
     { debugOnly: true }
@@ -4104,7 +4087,6 @@ if (shouldInitWhatsAppClients) {
 
 
   const clientsToInit = [
-    { label: "WA", client: waClient },
     { label: "WA-USER", client: waUserClient },
   ];
 
@@ -4143,13 +4125,12 @@ if (shouldInitWhatsAppClients) {
 
   // Diagnostic checks to ensure message listeners are attached
   logWaServiceDiagnostics(
-    waClient,
     waUserClient,
     getWaReadinessSummarySync()
   );
-  checkMessageListenersAttached(waClient, waUserClient);
+  checkMessageListenersAttached(waUserClient);
 }
 
-export default waClient;
+export default waClient; // waClient is an alias to waUserClient
 
 // ======================= end of file ======================
