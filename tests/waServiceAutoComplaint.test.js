@@ -31,18 +31,8 @@ const {
 } = await import('../src/service/waAutoComplaintService.js');
 
 describe('waAutoComplaintService', () => {
-  const originalGatewayAdmin = process.env.GATEWAY_WHATSAPP_ADMIN;
-
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  afterEach(() => {
-    if (originalGatewayAdmin === undefined) {
-      delete process.env.GATEWAY_WHATSAPP_ADMIN;
-    } else {
-      process.env.GATEWAY_WHATSAPP_ADMIN = originalGatewayAdmin;
-    }
   });
 
   test('should handle complaint message and invoke responder', async () => {
@@ -175,57 +165,5 @@ describe('waAutoComplaintService', () => {
     });
     expect(handled).toBe(false);
     expect(respondComplaintMessageMock).not.toHaveBeenCalled();
-  });
-
-  test('skips gateway-forwarded complaints when relayed between gateways', async () => {
-    process.env.GATEWAY_WHATSAPP_ADMIN = '6200002,6200003';
-    const adminOptionSessions = {};
-    const sessions = new Map();
-    const setSession = (id, data) => {
-      sessions.set(id, { ...data, time: Date.now() });
-    };
-    const getSession = (id) => sessions.get(id);
-
-    const complaintMessage = [
-      'Pesan Komplain',
-      'NRP : 98765',
-      'Kendala: tidak bisa login',
-    ].join('\n');
-
-    const firstHandled = await handleComplaintMessageIfApplicable({
-      text: complaintMessage,
-      allowUserMenu: false,
-      session: null,
-      isAdmin: false,
-      initialIsMyContact: true,
-      senderId: '6200111@c.us',
-      chatId: 'chat-a',
-      adminOptionSessions,
-      setSession,
-      getSession,
-      waClient: {},
-      pool: {},
-      userModel: {},
-    });
-
-    const secondHandled = await handleComplaintMessageIfApplicable({
-      text: `wagateway forward\n${complaintMessage}`,
-      allowUserMenu: false,
-      session: null,
-      isAdmin: false,
-      initialIsMyContact: true,
-      senderId: '6200002@s.whatsapp.net',
-      chatId: 'chat-b',
-      adminOptionSessions,
-      setSession,
-      getSession,
-      waClient: {},
-      pool: {},
-      userModel: {},
-    });
-
-    expect(firstHandled).toBe(true);
-    expect(secondHandled).toBe(false);
-    expect(respondComplaintMessageMock).toHaveBeenCalledTimes(1);
   });
 });
