@@ -102,7 +102,6 @@ import {
 } from "../utils/utilsHelper.js";
 import {
   handleComplaintMessageIfApplicable,
-  isGatewayComplaintForward,
 } from "./waAutoComplaintService.js";
 import {
   isAdminWhatsApp,
