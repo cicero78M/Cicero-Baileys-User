@@ -4,15 +4,11 @@
  */
 
 export function logWaServiceDiagnostics(
-  waClient,
   waUserClient,
-  waGatewayClient,
   readinessSummary = null
 ) {
   const clients = [
-    { name: 'waClient', label: 'WA', client: waClient },
     { name: 'waUserClient', label: 'WA-USER', client: waUserClient },
-    { name: 'waGatewayClient', label: 'WA-GATEWAY', client: waGatewayClient },
   ];
   const readinessClientEntries = Array.isArray(readinessSummary?.clients)
     ? readinessSummary.clients
@@ -66,11 +62,9 @@ export function logWaServiceDiagnostics(
   console.log('\n===========================================\n');
 }
 
-export function checkMessageListenersAttached(waClient, waUserClient, waGatewayClient) {
+export function checkMessageListenersAttached(waUserClient) {
   const clients = [
-    { name: 'waClient', client: waClient },
     { name: 'waUserClient', client: waUserClient },
-    { name: 'waGatewayClient', client: waGatewayClient },
   ];
 
   let allGood = true;

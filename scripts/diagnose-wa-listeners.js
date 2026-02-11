@@ -13,14 +13,12 @@
 process.env.WA_SERVICE_SKIP_INIT = 'true';
 process.env.NODE_ENV = 'test';
 
-import { waClient, waUserClient, waGatewayClient } from '../src/service/waService.js';
+import { waUserClient } from '../src/service/waService.js';
 
 console.log('\n========== WhatsApp Listener Diagnostics ==========\n');
 
 const clients = [
-  { name: 'waClient', client: waClient },
   { name: 'waUserClient', client: waUserClient },
-  { name: 'waGatewayClient', client: waGatewayClient },
 ];
 
 clients.forEach(({ name, client }) => {
