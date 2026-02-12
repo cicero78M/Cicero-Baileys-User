@@ -5,15 +5,15 @@
 // =======================
 
 const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 menit
-const USER_MENU_TIMEOUT = 3 * 60 * 1000; // 3 menit
-const MENU_WARNING = 1 * 60 * 1000; // 1 menit sebelum berakhir
+const USER_MENU_TIMEOUT = 5 * 60 * 1000; // 5 menit (ditingkatkan dari 3 menit)
+const MENU_WARNING = 2 * 60 * 1000; // 2 menit sebelum berakhir (ditingkatkan dari 1 menit)
 const MENU_TIMEOUT = 2 * 60 * 1000; // 2 menit
 const BIND_TIMEOUT = 2 * 60 * 1000; // 2 menit
-const NO_REPLY_TIMEOUT = 90 * 1000; // 90 detik
+const NO_REPLY_TIMEOUT = 120 * 1000; // 120 detik (ditingkatkan dari 90 detik)
 const USER_REQUEST_LINK_TIMEOUT = 2 * 60 * 1000; // 2 menit
 
 export const SESSION_EXPIRED_MESSAGE =
-  "⏰ *Sesi Telah Berakhir*\n\nSesi Anda telah berakhir karena tidak ada aktivitas selama 3 menit.\n\nUntuk memulai lagi, ketik *userrequest*.";
+  "⏰ *Sesi Telah Berakhir*\n\nSesi Anda telah berakhir karena tidak ada aktivitas selama 5 menit.\n\n📝 *Tips:* Siapkan informasi yang diperlukan sebelum memulai sesi untuk menghindari timeout.\n\nUntuk memulai lagi, ketik *userrequest*.";
 
 export const userMenuContext = {};         // { chatId: {step, ...} }
 export const updateUsernameSession = {};   // { chatId: {step, ...} }
@@ -62,7 +62,7 @@ export function setMenuTimeout(chatId, waClient, expectReply = false) {
       waClient
         .sendMessage(
           chatId,
-          "⏰ Sesi akan berakhir dalam 1 menit. Balas sesuai pilihan Anda untuk melanjutkan."
+          "⏰ *Peringatan Sesi*\n\nSesi akan berakhir dalam 2 menit.\n\n✅ Balas sesuai pilihan untuk melanjutkan dan memperpanjang sesi.\n⏹️ Ketik *batal* untuk keluar sekarang."
         )
         .catch((e) => console.error(e));
     }
@@ -73,7 +73,7 @@ export function setMenuTimeout(chatId, waClient, expectReply = false) {
         waClient
           .sendMessage(
             chatId,
-            "🤖 Kami masih menunggu balasan Anda. Silakan jawab jika sudah siap agar sesi dapat berlanjut."
+            "🤖 *Menunggu Balasan*\n\nKami masih menunggu balasan Anda.\n\n✍️ Silakan jawab sesuai instruksi untuk melanjutkan.\n❓ Ketik *batal* jika ingin keluar.\n\n⏱️ Sisa waktu: ~3 menit sebelum sesi berakhir."
           )
           .catch((e) => console.error(e));
       }
