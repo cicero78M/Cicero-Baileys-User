@@ -172,6 +172,49 @@ DROP INDEX IF EXISTS idx_user_whatsapp_unique;
 
 Note: This does NOT restore WhatsApp numbers that were set to NULL. You must restore from backup for that.
 
+
+## Index Validation for User Registration Lookup
+
+Registration flow now relies on lightweight lookups by `user.whatsapp` and `user.user_id`. To keep lookup performance at **O(log n)** under high traffic, verify both indexes after running migrations.
+
+1. **Validate index presence**
+
+   ```sql
+   SELECT indexname, indexdef
+   FROM pg_indexes
+   WHERE schemaname = 'public'
+     AND tablename = 'user'
+     AND (
+       indexdef ILIKE '%(whatsapp)%'
+       OR indexdef ILIKE '%(user_id)%'
+     )
+   ORDER BY indexname;
+   ```
+
+2. **Expected result**
+   - `idx_user_whatsapp_unique` (partial unique index for non-empty WhatsApp values)
+   - Primary key index on `user_id` (typically from `user_pkey`)
+
+3. **If `idx_user_whatsapp_unique` is missing, re-run migration**
+
+   ```bash
+   node scripts/run_migration.js sql/migrations/20260209_add_unique_constraint_user_whatsapp.sql
+   ```
+
+4. **Optional query-plan spot check**
+
+   ```sql
+   EXPLAIN ANALYZE SELECT user_id, nama, whatsapp, status
+   FROM "user"
+   WHERE whatsapp = '6281234567890';
+
+   EXPLAIN ANALYZE SELECT user_id, nama, whatsapp, status
+   FROM "user"
+   WHERE user_id = '87020990';
+   ```
+
+   The plan should show index-based access (`Index Scan` / `Bitmap Index Scan`) for both lookups in normal cardinality scenarios.
+
 ## Troubleshooting
 
 ### Migration fails with "syntax error"
