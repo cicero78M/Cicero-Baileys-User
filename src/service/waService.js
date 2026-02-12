@@ -203,13 +203,38 @@ if (!shouldInitWhatsAppClients) {
   console.warn(skipInitMessage);
 }
 
-// Fixed delay to ensure consistent 3-second response timing
-const responseDelayMs = 3000;
+const OUTBOUND_CHAT_WINDOW_MS = Number(
+  process.env.WA_OUTBOUND_CHAT_WINDOW_MS || 5 * 60 * 1000
+);
+const OUTBOUND_CHAT_MAX_MESSAGES = Number(
+  process.env.WA_OUTBOUND_CHAT_MAX_MESSAGES || 20
+);
+const OUTBOUND_GLOBAL_WINDOW_MS = Number(
+  process.env.WA_OUTBOUND_GLOBAL_WINDOW_MS || 60 * 1000
+);
+const OUTBOUND_GLOBAL_MAX_MESSAGES = Number(
+  process.env.WA_OUTBOUND_GLOBAL_MAX_MESSAGES || 60
+);
+const OUTBOUND_JITTER_MIN_MS = Number(process.env.WA_OUTBOUND_JITTER_MIN_MS || 1500);
+const OUTBOUND_JITTER_MAX_MS = Number(process.env.WA_OUTBOUND_JITTER_MAX_MS || 4500);
 
 const sleep = (ms) =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+
+function randomBetween(min, max) {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    return min;
+  }
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function trimWindow(timestamps, now, windowMs) {
+  while (timestamps.length && now - timestamps[0] >= windowMs) {
+    timestamps.shift();
+  }
+}
 
 function isFatalMissingChrome(client) {
   return (
@@ -1175,6 +1200,12 @@ function wrapSendMessage(client) {
     queueForClient = new PQueue({ concurrency: 1 });
     messageQueues.set(client, queueForClient);
   }
+  const perChatWindowState = new Map();
+  const globalWindowState = [];
+  const throttleMetrics = {
+    throttled: 0,
+    deferred: 0,
+  };
 
   function inferMessageType(messageContent) {
     if (typeof messageContent === "string") {
@@ -1205,6 +1236,116 @@ function wrapSendMessage(client) {
     return sendFailureMetrics.get(clientLabel);
   }
 
+  function normalizePriority(priorityInput) {
+    return String(priorityInput || "high").toLowerCase() === "low"
+      ? "low"
+      : "high";
+  }
+
+  function extractSendContext(args) {
+    const [jid, message, rawOptions] = args;
+    const safeOptions =
+      rawOptions && typeof rawOptions === "object" && !Array.isArray(rawOptions)
+        ? { ...rawOptions }
+        : rawOptions;
+    const priority = normalizePriority(
+      safeOptions?.priority || safeOptions?.messagePriority
+    );
+    const throttleTag =
+      typeof safeOptions?.throttleTag === "string" ? safeOptions.throttleTag : null;
+    if (safeOptions && typeof safeOptions === "object") {
+      delete safeOptions.priority;
+      delete safeOptions.messagePriority;
+      delete safeOptions.throttleTag;
+    }
+    const sendArgs = [jid, message];
+    if (safeOptions !== undefined) {
+      sendArgs.push(safeOptions);
+    }
+    return {
+      jid,
+      message,
+      sendArgs,
+      priority,
+      throttleTag,
+    };
+  }
+
+  function getThrottleWaitInfo(jid, now) {
+    const chatState = perChatWindowState.get(jid) || [];
+    trimWindow(chatState, now, OUTBOUND_CHAT_WINDOW_MS);
+    perChatWindowState.set(jid, chatState);
+    trimWindow(globalWindowState, now, OUTBOUND_GLOBAL_WINDOW_MS);
+
+    const chatLimited = chatState.length >= OUTBOUND_CHAT_MAX_MESSAGES;
+    const globalLimited = globalWindowState.length >= OUTBOUND_GLOBAL_MAX_MESSAGES;
+
+    let waitMs = 0;
+    if (chatLimited) {
+      waitMs = Math.max(waitMs, OUTBOUND_CHAT_WINDOW_MS - (now - chatState[0]));
+    }
+    if (globalLimited) {
+      waitMs = Math.max(waitMs, OUTBOUND_GLOBAL_WINDOW_MS - (now - globalWindowState[0]));
+    }
+    return {
+      waitMs,
+      chatCount: chatState.length,
+      globalCount: globalWindowState.length,
+      chatLimited,
+      globalLimited,
+    };
+  }
+
+  async function waitForThrottleWindow(context) {
+    while (true) {
+      const now = Date.now();
+      const waitInfo = getThrottleWaitInfo(context.jid, now);
+      if (waitInfo.waitMs <= 0) {
+        return;
+      }
+
+      throttleMetrics.throttled += 1;
+      writeWaStructuredLog(
+        "warn",
+        buildWaStructuredLog({
+          clientId: client?.clientId || null,
+          label: context.clientLabel,
+          event: "wa_outbound_throttled",
+          jid: context.jid,
+          messageType: context.messageType,
+          priority: context.priority,
+          throttleTag: context.throttleTag,
+          waitMs: waitInfo.waitMs,
+          chatCount: waitInfo.chatCount,
+          globalCount: waitInfo.globalCount,
+          chatLimited: waitInfo.chatLimited,
+          globalLimited: waitInfo.globalLimited,
+          throttledTotal: throttleMetrics.throttled,
+          deferredTotal: throttleMetrics.deferred,
+        })
+      );
+
+      throttleMetrics.deferred += 1;
+      writeWaStructuredLog(
+        "info",
+        buildWaStructuredLog({
+          clientId: client?.clientId || null,
+          label: context.clientLabel,
+          event: "wa_outbound_deferred",
+          jid: context.jid,
+          messageType: context.messageType,
+          priority: context.priority,
+          throttleTag: context.throttleTag,
+          deferMs: waitInfo.waitMs,
+          throttledTotal: throttleMetrics.throttled,
+          deferredTotal: throttleMetrics.deferred,
+        })
+      );
+
+      await sleep(waitInfo.waitMs);
+    }
+  }
+
   async function sendOnce(args) {
     const waitFn =
       typeof client.waitForWaReady === "function"
@@ -1216,13 +1357,35 @@ function wrapSendMessage(client) {
       throw new Error("WhatsApp client not ready");
     });
 
-    const [jid, message] = args;
+    const context = extractSendContext(args);
+    const { jid, message, priority, throttleTag, sendArgs } = context;
     const readinessState = getClientReadinessState(client);
     const clientLabel = readinessState?.label || "WA";
     const messageType = inferMessageType(message);
 
+    await waitForThrottleWindow({
+      jid,
+      messageType,
+      clientLabel,
+      priority,
+      throttleTag,
+    });
+
+    const jitterDelayMs = randomBetween(OUTBOUND_JITTER_MIN_MS, OUTBOUND_JITTER_MAX_MS);
+    if (jitterDelayMs > 0) {
+      await sleep(jitterDelayMs);
+    }
+
     try {
-      return await original.apply(client, args);
+      const result = await original.apply(client, sendArgs);
+      const now = Date.now();
+      const chatState = perChatWindowState.get(jid) || [];
+      trimWindow(chatState, now, OUTBOUND_CHAT_WINDOW_MS);
+      chatState.push(now);
+      perChatWindowState.set(jid, chatState);
+      trimWindow(globalWindowState, now, OUTBOUND_GLOBAL_WINDOW_MS);
+      globalWindowState.push(now);
+      return result;
     } catch (err) {
       const failureMetric = getSendFailureMetric(clientLabel);
       failureMetric.failed += 1;
@@ -1252,8 +1415,9 @@ function wrapSendMessage(client) {
   }
 
   client.sendMessage = (...args) => {
+    const sendContext = extractSendContext(args);
     return queueForClient.add(() => sendOnce(args), {
-      delay: responseDelayMs,
+      priority: sendContext.priority === "high" ? 10 : 1,
     });
   };
 }
