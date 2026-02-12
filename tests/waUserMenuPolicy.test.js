@@ -26,20 +26,32 @@ describe("WA user menu policy", () => {
     expect(shouldStart).toBe(true);
   });
 
-  test("returns lightweight help policy for unknown non-command", () => {
+  test("never returns lightweight help for unknown messages (returns false)", () => {
+    // Updated behavior: never send "command not recognized" message
+    // Instead, main flow checks if user is linked and starts linking workflow
     const shouldHelp = shouldSendLightHelpForUnknownMessage({
       allowUserMenu: true,
       lowerText: "halo admin",
       isAdminCommand: false,
     });
 
-    expect(shouldHelp).toBe(true);
+    expect(shouldHelp).toBe(false);
   });
 
   test("does not return lightweight help for request commands", () => {
     const shouldHelp = shouldSendLightHelpForUnknownMessage({
       allowUserMenu: true,
       lowerText: "clientrequest",
+      isAdminCommand: false,
+    });
+
+    expect(shouldHelp).toBe(false);
+  });
+  
+  test("never returns lightweight help even for empty text", () => {
+    const shouldHelp = shouldSendLightHelpForUnknownMessage({
+      allowUserMenu: true,
+      lowerText: "",
       isAdminCommand: false,
     });
 

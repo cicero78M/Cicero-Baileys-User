@@ -252,4 +252,90 @@ describe("userMenuHandlers conversational flow", () => {
       expect.stringContaining("Balas *ya* jika ingin update data, *tidak* untuk kembali, atau *batal* untuk menutup sesi.")
     );
   });
+
+  it("stays silent when inputUserId receives empty message", async () => {
+    const session = { step: "inputUserId" };
+    const userModel = {
+      findUserById: jest.fn(),
+    };
+
+    await userMenuHandlers.inputUserId(
+      session,
+      chatId,
+      "",
+      waClient,
+      null,
+      userModel
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
+
+  it("stays silent when inputUserId receives whitespace only", async () => {
+    const session = { step: "inputUserId" };
+    const userModel = {
+      findUserById: jest.fn(),
+    };
+
+    await userMenuHandlers.inputUserId(
+      session,
+      chatId,
+      "   ",
+      waClient,
+      null,
+      userModel
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
+
+  it("stays silent when confirmBindUser receives empty message", async () => {
+    const session = { step: "confirmBindUser", bindUserId: "123456" };
+
+    await userMenuHandlers.confirmBindUser(
+      session,
+      chatId,
+      "",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
+
+  it("stays silent when confirmUserByWaIdentity receives empty message", async () => {
+    const session = {};
+
+    await userMenuHandlers.confirmUserByWaIdentity(
+      session,
+      chatId,
+      "",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
+
+  it("stays silent when tanyaUpdateMyData receives empty message", async () => {
+    const session = {};
+
+    await userMenuHandlers.tanyaUpdateMyData(
+      session,
+      chatId,
+      "",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
 });
