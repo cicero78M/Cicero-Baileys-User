@@ -50,7 +50,10 @@ export async function sendWAReport(waClient, message, chatIds = null) {
       continue;
     }
     try {
-      await waClient.sendMessage(target, message);
+      await waClient.sendMessage(target, message, {
+        priority: 'low',
+        throttleTag: 'wa_report',
+      });
       console.log(
         `[WA CRON] Sent WA to ${target}: ${message.substring(0, 64)}...`
       );
@@ -107,6 +110,9 @@ export async function sendWAFile(
         document: buffer,
         mimetype: resolvedMimeType,
         fileName: filename,
+      }, {
+        priority: 'low',
+        throttleTag: 'wa_file_delivery',
       });
       console.log(`[WA CRON] Sent file to ${target}: ${filename}`);
     } catch (err) {
@@ -530,11 +536,15 @@ export async function safeSendMessage(waClient, chatId, message, options = {}) {
   let onErrorHandler = null;
 
   if (options && typeof options === 'object' && !Array.isArray(options)) {
-    const { retry, onError, ...rest } = options;
+    const { retry, onError, priority, messagePriority, throttleTag, ...rest } = options;
     if (Object.prototype.hasOwnProperty.call(options, 'retry')) {
       retryOptions = retry ?? {};
     }
-    sendOptions = rest;
+    sendOptions = {
+      ...rest,
+      priority: messagePriority || priority || 'high',
+      throttleTag: throttleTag || null,
+    };
     onErrorHandler = typeof onError === 'function' ? onError : null;
   }
 
