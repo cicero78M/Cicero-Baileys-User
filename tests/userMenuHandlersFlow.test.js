@@ -29,7 +29,7 @@ describe("userMenuHandlers conversational flow", () => {
 
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      expect.stringContaining("atau *batal* untuk menutup sesi.")
+      expect.stringContaining("⏹️ Balas *batal* untuk menutup sesi")
     );
   });
 
@@ -46,7 +46,7 @@ describe("userMenuHandlers conversational flow", () => {
 
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      expect.stringContaining("atau *batal* untuk menutup sesi.")
+      expect.stringContaining("⏹️ Balas *batal* untuk menutup sesi")
     );
   });
 
@@ -60,11 +60,11 @@ describe("userMenuHandlers conversational flow", () => {
 
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      expect.stringContaining("Untuk menampilkan data Anda, silakan ketik NRP/NIP Anda (hanya angka).")
+      expect.stringContaining("📝 Silakan ketik *NRP/NIP* Anda (hanya angka):")
     );
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      expect.stringContaining("Ketik *batal* untuk keluar.")
+      expect.stringContaining("⏹️ Ketik *batal* untuk keluar.")
     );
   });
 

@@ -63,16 +63,18 @@ export function getFieldInfo(fieldKey, user) {
 export function formatFieldList(showDesa = false) {
   return appendSubmenuBackInstruction(
     `
-✏️ *Pilih field yang ingin diupdate:*
+✏️ *Pilih Field yang Ingin Diupdate:*
 
-1. Nama
-2. Pangkat
-3. Satfung
-4. Jabatan
-5. Instagram
-6. TikTok${showDesa ? '\n7. Desa Binaan' : ''}
+1️⃣ Nama
+2️⃣ Pangkat
+3️⃣ Satfung
+4️⃣ Jabatan
+5️⃣ Instagram
+6️⃣ TikTok${showDesa ? '\n7️⃣ Desa Binaan' : ''}
 
-Balas dengan *angka* field di atas atau ketik *batal* untuk keluar.
+📝 Balas dengan *angka* (contoh: 1) atau ketik *batal* untuk keluar.
+
+⏱️ Sesi aktif: 5 menit
 `.trim()
   );
 }
@@ -86,13 +88,13 @@ Balas dengan *angka* field di atas atau ketik *batal* untuk keluar.
  */
 export function formatFieldUpdatePrompt(fieldKey, displayName, currentValue) {
   const examples = {
-    nama: 'Contoh: BUDI SANTOSO',
-    pangkat: 'Pilih dari daftar di atas menggunakan angka atau ketik nama pangkat',
-    satfung: 'Pilih dari daftar di atas menggunakan angka atau ketik nama satfung',
-    jabatan: 'Contoh: KASAT BINMAS',
-    insta: 'Contoh: https://instagram.com/username atau @username',
-    tiktok: 'Contoh: https://tiktok.com/@username atau @username',
-    desa: 'Contoh: DESA SUKAMAJU',
+    nama: '💡 Contoh: BUDI SANTOSO',
+    pangkat: '💡 Pilih dari daftar di atas menggunakan angka atau ketik nama pangkat',
+    satfung: '💡 Pilih dari daftar di atas menggunakan angka atau ketik nama satfung',
+    jabatan: '💡 Contoh: KASAT BINMAS',
+    insta: '💡 Contoh: https://instagram.com/username atau @username',
+    tiktok: '💡 Contoh: https://tiktok.com/@username atau @username',
+    desa: '💡 Contoh: DESA SUKAMAJU',
   };
   
   const example = examples[fieldKey] || '';
@@ -100,12 +102,13 @@ export function formatFieldUpdatePrompt(fieldKey, displayName, currentValue) {
   return [
     `📝 *Update ${displayName}*`,
     '',
-    `Nilai saat ini: *${currentValue}*`,
+    `📌 Nilai saat ini: *${currentValue}*`,
     '',
-    `Ketik nilai baru untuk field *${displayName}*:`,
+    `✍️ Ketik nilai baru untuk field *${displayName}*:`,
     example ? `${example}` : '',
     '',
-    'Ketik *batal* untuk membatalkan.',
+    '⏹️ Ketik *batal* untuk membatalkan.',
+    '⏱️ Sesi aktif: 5 menit',
   ]
     .filter(Boolean)
     .join('\n')
@@ -129,7 +132,13 @@ export function formatConfirmation(action) {
  * @returns {string} Success message
  */
 export function formatUpdateSuccess(fieldDisplayName, newValue, userId) {
-  return `✅ Data *${fieldDisplayName}* untuk NRP/NIP *${userId}* berhasil diupdate menjadi *${newValue}*.`;
+  return [
+    `✅ *Update Berhasil*`,
+    '',
+    `Data *${fieldDisplayName}* untuk NRP/NIP *${userId}* berhasil diupdate menjadi *${newValue}*.`,
+    '',
+    '📋 Anda akan kembali ke menu utama...',
+  ].join('\n');
 }
 
 /**
@@ -160,5 +169,13 @@ export function getFieldDisplayName(dbField) {
  */
 export function formatOptionsList(options, title) {
   const list = options.map((opt, i) => `${i + 1}. ${opt}`).join('\n');
-  return `${title}:\n\n${list}\n\nBalas dengan angka atau ketik nama sesuai daftar.\nKetik *batal* untuk membatalkan.`;
+  return [
+    `📋 *${title}*`,
+    '',
+    list,
+    '',
+    '✍️ Balas dengan *angka* atau ketik nama sesuai daftar.',
+    '⏹️ Ketik *batal* untuk membatalkan.',
+    '⏱️ Sesi aktif: 5 menit',
+  ].join('\n');
 }

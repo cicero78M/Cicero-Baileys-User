@@ -57,12 +57,18 @@ export const userMenuHandlers = {
       
       // For registered users, directly show data and ask about updates
       const msgText = [
-        `${salam}, Bapak/Ibu *${userByWA.nama || ""}*`,
+        `${salam}, Bapak/Ibu *${userByWA.nama || ""}* 👋`,
         "",
         formatUserReport(userByWA),
         "",
-        "Apakah Anda ingin melakukan perubahan data?",
-        "Balas *ya* untuk update data, *tidak* untuk keluar, atau *batal* untuk menutup sesi.",
+        "━━━━━━━━━━━━━━━━━",
+        "❓ Apakah Anda ingin melakukan perubahan data?",
+        "",
+        "✅ Balas *ya* untuk update data",
+        "❌ Balas *tidak* untuk keluar",
+        "⏹️ Balas *batal* untuk menutup sesi",
+        "",
+        "⏱️ Sesi aktif: 5 menit",
       ].join("\n");
       session.step = "tanyaUpdateMyData";
       await waClient.sendMessage(chatId, msgText.trim());
@@ -73,14 +79,16 @@ export const userMenuHandlers = {
     console.log(`[userrequest] User NOT found for normalized number: ${pengirim}`);
     session.step = "inputUserId";
     const msgText = [
-      "🔐 *Registrasi Akun*",
+      "🔐 *Registrasi Akun* (Langkah 1/2)",
       "",
       "Nomor WhatsApp Anda belum terdaftar dalam sistem.",
-      "Untuk menampilkan data Anda, silakan ketik NRP/NIP Anda (hanya angka).",
       "",
+      "📝 Silakan ketik *NRP/NIP* Anda (hanya angka):",
       "Contoh: 87020990",
       "",
-      "Ketik *batal* untuk keluar.",
+      "💡 *Tips:* Pastikan NRP/NIP sudah terdaftar di sistem sebelum melanjutkan.",
+      "",
+      "⏹️ Ketik *batal* untuk keluar.",
     ].join("\n");
     await waClient.sendMessage(chatId, msgText);
   },
@@ -186,11 +194,15 @@ export const userMenuHandlers = {
         await waClient.sendMessage(
           chatId,
           [
-            `✅ NRP/NIP *${digits}* ditemukan.`,
+            `✅ NRP/NIP *${digits}* ditemukan. (Langkah 2/2)`,
             '',
-            'Nomor WhatsApp ini belum terdaftar. Apakah Anda ingin menghubungkannya dengan akun tersebut?',
+            '🔗 Nomor WhatsApp ini belum terdaftar.',
+            'Apakah Anda ingin menghubungkannya dengan akun tersebut?',
             '',
-            'Balas *ya* untuk menghubungkan atau *tidak* untuk membatalkan.',
+            '✅ Balas *ya* untuk menghubungkan',
+            '❌ Balas *tidak* untuk membatalkan',
+            '',
+            '⏱️ Sesi akan berakhir jika tidak ada aktivitas.',
           ].join('\n')
         );
         return;
@@ -246,8 +258,13 @@ export const userMenuHandlers = {
         await waClient.sendMessage(
           chatId,
           [
-            "Apakah Anda ingin melakukan perubahan data?",
-            "Balas *ya* untuk update data atau *tidak* untuk keluar.",
+            "━━━━━━━━━━━━━━━━━",
+            "❓ Apakah Anda ingin melakukan perubahan data?",
+            "",
+            "✅ Balas *ya* untuk update data",
+            "❌ Balas *tidak* untuk keluar",
+            "",
+            "⏱️ Sesi aktif: 5 menit",
           ].join("\n")
         );
       } catch (err) {
