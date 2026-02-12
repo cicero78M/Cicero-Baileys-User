@@ -218,6 +218,42 @@ verification log snippet.
 # WA_SERVICE_SKIP_INIT=false
 # WARNING: Setting WA_SERVICE_SKIP_INIT=true will disable WhatsApp message reception
 # This should ONLY be used during testing, NEVER in production
+
+## Operational Runbook: Monitoring WA Outbox Queue
+
+Untuk pesan non-kritis sinkron (reminder, warning, broadcast, notifikasi sekunder), service menggunakan outbox queue (`wa-outbox`) melalui wrapper `sendUserMessage(..., { immediate: false })`.
+
+### 1) Cek kesehatan outbox dari endpoint
+
+```bash
+curl -s http://localhost:<PORT>/wa-health | jq '.waOutbox'
+```
+
+Field utama:
+
+- `queueDepth`: total job pending (`waiting + active + delayed`).
+- `sendLatencyMs.average`: rata-rata latency dari enqueue sampai job selesai terkirim.
+- `sendLatencyMs.max`: latency maksimum terukur.
+- `failed`: jumlah job yang gagal di worker.
+
+### 2) Ambang alert yang direkomendasikan
+
+- `queueDepth > 100` selama > 5 menit => indikasi bottleneck worker/adapter.
+- `sendLatencyMs.average > 15000` ms => indikasi delay kirim tinggi.
+- `failed` meningkat terus dalam 10-15 menit => indikasi kegagalan delivery atau koneksi WA tidak stabil.
+
+### 3) Langkah investigasi saat alarm aktif
+
+1. Pastikan worker outbox aktif saat bootstrap service WA.
+2. Cek readiness WhatsApp client (`/wa-health` -> `clients[].isReady`).
+3. Review log error kirim (`wa_send_message_failed`) untuk root cause.
+4. Validasi konektivitas Redis/BullMQ bila queue tidak bergerak.
+
+### 4) Tindakan mitigasi
+
+- Jika backlog naik karena burst notifikasi, pertimbangkan turunkan volume broadcast sementara.
+- Jika error auth/disconnect WA, lakukan recovery session (scan QR ulang / restart service).
+- Jika latency tinggi stabil, evaluasi tuning limiter dan kapasitas infra secara bertahap.
 # When set to true, the bot will NOT receive any messages
 ```
 
