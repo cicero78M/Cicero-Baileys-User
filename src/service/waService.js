@@ -43,6 +43,7 @@ import {
   initializeContactSyncWorker,
 } from "./contactSyncQueue.js";
 import { enqueueSend, attachWorker } from "./waOutbox.js";
+import redisClient from "../config/redis.js";
 
 import {
   absensiLikes,
@@ -189,11 +190,77 @@ const messageQueues = new WeakMap();
 const sendFailureMetrics = new Map();
 const clientMessageHandlers = new Map();
 let waOutboxWorker = null;
+let hasCheckedOutboxRedisVersion = false;
+let hasWarnedOutboxRedisVersion = false;
 
 initializeContactSyncWorker();
 
 function normalizeMessagePriority(priorityInput) {
   return String(priorityInput || "high").toLowerCase() === "low" ? "low" : "high";
+}
+
+function parseRedisVersion(infoServerOutput = "") {
+  const match = String(infoServerOutput)
+    .match(/(?:^|\r?\n)redis_version:([^\r\n]+)/i);
+  return match?.[1]?.trim() || null;
+}
+
+function isRedisVersionBelowMinimum(version, minimum = "6.2.0") {
+  if (!version) return false;
+  const toTriplet = (value) =>
+    String(value)
+      .split(".")
+      .slice(0, 3)
+      .map((part) => Number.parseInt(part, 10) || 0);
+
+  const currentParts = toTriplet(version);
+  const minimumParts = toTriplet(minimum);
+
+  for (let idx = 0; idx < 3; idx += 1) {
+    if (currentParts[idx] < minimumParts[idx]) return true;
+    if (currentParts[idx] > minimumParts[idx]) return false;
+  }
+
+  return false;
+}
+
+async function warnIfOutboxRedisVersionUnsupported() {
+  if (hasCheckedOutboxRedisVersion) {
+    return;
+  }
+  hasCheckedOutboxRedisVersion = true;
+
+  try {
+    const infoServer = await redisClient.info("server");
+    const redisVersion = parseRedisVersion(infoServer);
+    if (!isRedisVersionBelowMinimum(redisVersion, "6.2.0") || hasWarnedOutboxRedisVersion) {
+      return;
+    }
+
+    hasWarnedOutboxRedisVersion = true;
+    writeWaStructuredLog(
+      "warn",
+      buildWaStructuredLog({
+        label: "WA-OUTBOX",
+        event: "wa_outbox_redis_version_below_minimum",
+        redisVersion: redisVersion || "unknown",
+        redisMinimumVersion: "6.2.0",
+        risk:
+          "Redis 6.0.x masih bisa jalan tetapi behavior queue BullMQ berpotensi tidak optimal (delay/retry/observability).",
+      })
+    );
+  } catch (err) {
+    writeWaStructuredLog(
+      "debug",
+      buildWaStructuredLog({
+        label: "WA-OUTBOX",
+        event: "wa_outbox_redis_version_check_failed",
+        errorCode: err?.code || "REDIS_INFO_FAILED",
+        errorMessage: err?.message || String(err),
+      }),
+      { debugOnly: true }
+    );
+  }
 }
 
 export async function sendUserMessage(
@@ -4359,6 +4426,8 @@ const handleUserMessage = createHandleMessage(waUserClient, {
 registerClientMessageHandler(waUserClient, "wwebjs-user", handleUserMessage);
 
 if (shouldInitWhatsAppClients) {
+  await warnIfOutboxRedisVersionUnsupported();
+
   if (!waOutboxWorker) {
     waOutboxWorker = attachWorker({
       sendText: (jid, payloadText) => waUserClient.sendMessage(jid, payloadText, { priority: "low" }),
