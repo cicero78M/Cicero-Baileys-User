@@ -15,14 +15,10 @@ This document outlines how Cicero handles per-role removals and user deactivatio
 - When a user has multiple roles and the operator chooses **Nonaktif**, the menu prompts for the target role to remove before applying `deactivateRoleOrUser`.
 - The confirmation message shows which role was changed and which roles remain active.
 
-## Bulk deletion requests (`clientrequest` menu)
+## Bulk deletion via WhatsApp
 
-- When a user has multiple active roles, the bulk flow now pauses and asks the operator to pick one before applying the change. The menu uses two steps: `bulkStatus_chooseRole` sends the prompt, and `bulkStatus_applySelection` processes the reply.
-- Prompt template:  
-  `User <NAMA/NRP> memiliki lebih dari satu role aktif. NRP/NIP: <NRP> ... Pilih role yang akan dihapus: 1. <role> ... Balas angka sesuai pilihan atau ketik *batal* untuk membatalkan proses.`
-- After a role is chosen, `deactivateRoleOrUser` runs for that role. WhatsApp numbers are cleared only when the resulting user status becomes `false`.
-- The final summary lists the chosen role (if any) and whether the user remains aktif or becomes nonaktif per entry.
-- After sending the bulk deletion summary (or when the operator cancels), the `clientrequest` session is cleared so subsequent messages are treated as fresh input.
+- Alur bulk deletion berbasis menu WhatsApp `clientrequest` sudah dinonaktifkan.
+- Pengelolaan deactivation bulk sebaiknya dilakukan lewat endpoint/API atau alur operasional lain yang masih aktif.
 
 ## REST: `DELETE /users/:id`
 
