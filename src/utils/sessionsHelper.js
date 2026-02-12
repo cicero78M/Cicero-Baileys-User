@@ -25,6 +25,44 @@ export const adminOptionSessions = {};     // { chatId: {timeout} }
 const clientRequestSessions = {};          // { chatId: {step, data, ...} }
 
 // =======================
+// MESSAGE PROCESSING LOCKS
+// =======================
+
+const processingLocks = {};  // { chatId: Promise }
+
+/**
+ * Acquire a processing lock for a chatId to prevent concurrent message handling
+ * @param {string} chatId
+ * @returns {Promise<Function>} Release function to call when done
+ */
+export async function acquireProcessingLock(chatId) {
+  // Wait for any existing lock to be released
+  while (processingLocks[chatId]) {
+    await processingLocks[chatId];
+  }
+  
+  // Create a new lock
+  let releaseLock;
+  processingLocks[chatId] = new Promise(resolve => {
+    releaseLock = () => {
+      delete processingLocks[chatId];
+      resolve();
+    };
+  });
+  
+  return releaseLock;
+}
+
+/**
+ * Check if a chatId is currently being processed
+ * @param {string} chatId
+ * @returns {boolean}
+ */
+export function isProcessing(chatId) {
+  return !!processingLocks[chatId];
+}
+
+// =======================
 // UTILITY UNTUK MENU USER (INTERAKTIF)
 // =======================
 
