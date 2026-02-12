@@ -163,3 +163,18 @@ If issues persist:
 - Troubleshooting Guide: `docs/wa_troubleshooting.md`
 - Test Script: `scripts/test-wa-setup.js`
 - Environment Config: `.env.example`
+
+## Latest Hotfix: Duplicate `normalizedWabotCmd` Declaration
+
+### Symptom
+- Service failed to start with `SyntaxError: Identifier "normalizedWabotCmd" has already been declared`.
+
+### Root Cause
+- `normalizedWabotCmd` was declared twice in the same function scope in `src/service/waService.js`.
+
+### Fix
+- Removed the duplicate `const normalizedWabotCmd = ...` declaration in the lower command-dispatch block and reused the earlier normalized value declared in `processMessage()`.
+
+### Impact
+- Restores successful module parsing and startup.
+- Keeps support for `wabot`, `wabotditbinmas`, and `ditbinmas` command aliases unchanged.
