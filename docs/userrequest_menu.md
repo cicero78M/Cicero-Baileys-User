@@ -205,7 +205,7 @@ Display formatting utilities:
 ## Common Issues & Solutions
 
 ### Issue: User can't find their data
-**Solution**: Check if NRP/NIP is correct in database. User should contact Opr Humas Polres.
+**Solution**: Check if NRP/NIP is correct in database. User should contact Opr CICERO Polres.
 
 ### Issue: Instagram/TikTok already registered
 **Solution**: User should use different account or contact operator to unlink old account.

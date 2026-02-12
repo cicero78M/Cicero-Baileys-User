@@ -3053,7 +3053,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
     if (!user) {
       await waClient.sendMessage(
         chatId,
-        `❌ NRP *${nrp}* tidak ditemukan. Jika yakin benar, hubungi Opr Humas Polres Anda.`
+        `❌ NRP *${nrp}* tidak ditemukan. Jika yakin benar, hubungi Opr CICERO Polres Anda.`
       );
       return;
     }
@@ -4325,7 +4325,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         }
         const user = await userModel.findUserById(nrp);
         if (!user) {
-          await waClient.sendMessage(chatId, `❌ NRP *${nrp}* tidak ditemukan. Jika yakin benar, hubungi Opr Humas Polres Anda.`);
+          await waClient.sendMessage(chatId, `❌ NRP *${nrp}* tidak ditemukan. Jika yakin benar, hubungi Opr CICERO Polres Anda.`);
           return;
         }
         session.step = "confirm";

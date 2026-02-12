@@ -135,7 +135,7 @@ Sistem akan menutup sesi dan Anda bisa memulai lagi dengan ketik: **userrequest*
 
 **Solusi**:
 1. Pastikan NRP/NIP benar (8 digit)
-2. Hubungi Operator Humas Polres Anda
+2. Hubungi Opr CICERO Polres Anda
 
 ### "Instagram/TikTok sudah terdaftar"
 **Penyebab**: Akun social media sudah digunakan user lain.
@@ -155,7 +155,7 @@ Sistem akan menutup sesi dan Anda bisa memulai lagi dengan ketik: **userrequest*
 
 ## 📞 Butuh Bantuan?
 
-Hubungi Operator Humas Polres Anda atau ketik **oprrequest** untuk bantuan operator.
+Hubungi Opr CICERO Polres Anda atau ketik **oprrequest** untuk bantuan operator.
 
 ---
 
