@@ -2611,7 +2611,8 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
           await handler(session, chatId, text, waClient, pool, userModel);
           
           // Verify session still exists before accessing properties
-          // Note: Early return here is safe - finally block will still execute to release lock
+          // Note: Early returns are safe - finally block always executes to release the lock
+          // regardless of how the try block exits (return, throw, or normal completion)
           if (!userMenuContext[chatId]) {
             return;
           }
