@@ -357,11 +357,11 @@ export const userMenuHandlers = {
       return;
     }
     if (!new RegExp(`^[1-${maxOption}]$`).test(lower)) {
+      // Only send error message, do not resend the menu
       await waClient.sendMessage(
         chatId,
         "❌ Pilihan tidak valid. Balas dengan angka sesuai daftar (contoh: 1) atau ketik *batal* untuk keluar."
       );
-      await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
       return;
     }
 
@@ -538,15 +538,11 @@ export const userMenuHandlers = {
   tanyaUpdateMyData: async (session, chatId, text, waClient, pool, userModel) => {
     const answer = text.trim().toLowerCase();
     if (answer === "ya") {
-      session.step = "confirmUserByWaUpdate";
-      await userMenuHandlers.confirmUserByWaUpdate(
-        session,
-        chatId,
-        "ya",
-        waClient,
-        pool,
-        userModel
-      );
+      // Just transition to next step - don't auto-call the handler
+      session.identityConfirmed = true;
+      session.updateUserId = session.user_id;
+      session.step = "updateAskField";
+      await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
       return;
     } else if (answer === "tidak" || answer === "batal") {
       await closeSession(session, chatId, waClient);

@@ -25,6 +25,77 @@ export const adminOptionSessions = {};     // { chatId: {timeout} }
 const clientRequestSessions = {};          // { chatId: {step, data, ...} }
 
 // =======================
+// MESSAGE PROCESSING LOCKS
+// =======================
+
+const processingLocks = {};  // { chatId: Promise }
+const lockQueues = {};       // { chatId: Array<Function> }
+
+/**
+ * Acquire a processing lock for a chatId to prevent concurrent message handling
+ * Uses a queue-based approach to prevent race conditions
+ * @param {string} chatId
+ * @returns {Promise<Function>} Release function to call when done
+ */
+export async function acquireProcessingLock(chatId) {
+  // Create queue if it doesn't exist
+  if (!lockQueues[chatId]) {
+    lockQueues[chatId] = [];
+  }
+  
+  // If there's an active lock, queue this request
+  if (processingLocks[chatId]) {
+    await new Promise(resolve => {
+      lockQueues[chatId].push(resolve);
+    });
+  }
+  
+  // Create a new lock with timeout safety
+  let releaseLock;
+  let timeoutId;
+  let lockReleased = false;  // Flag to prevent double-release
+  
+  processingLocks[chatId] = new Promise(resolve => {
+    releaseLock = () => {
+      if (lockReleased) return;  // Prevent double-release
+      lockReleased = true;
+      
+      clearTimeout(timeoutId);
+      delete processingLocks[chatId];
+      resolve();
+      
+      // Process next in queue after resolving current lock
+      const nextInQueue = lockQueues[chatId]?.shift();
+      if (nextInQueue) {
+        nextInQueue();
+      } else {
+        delete lockQueues[chatId];
+      }
+    };
+  });
+  
+  // Safety timeout: auto-release after 30 seconds to prevent permanent deadlock
+  timeoutId = setTimeout(() => {
+    // Only force release if lock still exists and not already released
+    if (processingLocks[chatId] && !lockReleased) {
+      console.warn(`[acquireProcessingLock] Lock timeout for chatId: ${chatId}, forcing release`);
+      releaseLock();
+    }
+  }, 30000);
+  
+  return releaseLock;
+}
+
+/**
+ * Check if a chatId is currently being processed
+ * @param {string} chatId
+ * @returns {boolean}
+ */
+export function isProcessing(chatId) {
+  return !!processingLocks[chatId];
+}
+
+// =======================
 // UTILITY UNTUK MENU USER (INTERAKTIF)
 // =======================
 

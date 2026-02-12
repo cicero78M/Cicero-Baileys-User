@@ -90,6 +90,8 @@ import {
   setSession,
   getSession,
   clearSession,
+  acquireProcessingLock,
+  isProcessing,
 } from "../utils/sessionsHelper.js";
 
 import {
@@ -2593,29 +2595,51 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         delete userMenuContext[chatId];
         return;
       }
-      setMenuTimeout(chatId, waClient);
-      const session = userMenuContext[chatId];
-      const handler = userMenuHandlers[session.step];
-      if (handler) {
-        await handler(session, chatId, text, waClient, pool, userModel);
-        if (session.exit) {
+      
+      // Acquire lock to prevent concurrent processing for the same chatId
+      const releaseLock = await acquireProcessingLock(chatId);
+      
+      try {
+        // Verify session still exists after acquiring lock (could have been deleted while waiting)
+        if (!userMenuContext[chatId]) {
+          return;
+        }
+        
+        const session = userMenuContext[chatId];
+        const handler = userMenuHandlers[session.step];
+        if (handler) {
+          await handler(session, chatId, text, waClient, pool, userModel);
+          
+          // Verify session still exists before accessing properties
+          // Note: Early returns are safe - finally block always executes to release the lock
+          // regardless of how the try block exits (return, throw, or normal completion)
+          if (!userMenuContext[chatId]) {
+            return;
+          }
+          
+          // Set timeout AFTER handler completes to avoid race conditions
+          if (session.exit) {
+            clearTimeout(session.timeout);
+            clearTimeout(session.warningTimeout);
+            clearTimeout(session.noReplyTimeout);
+            delete userMenuContext[chatId];
+          } else {
+            const expectReply = shouldExpectQuickReply(session);
+            setMenuTimeout(chatId, waClient, expectReply);
+          }
+        } else {
+          await waClient.sendMessage(
+            chatId,
+            "⚠️ Sesi menu user tidak dikenal, silakan ketik *userrequest* ulang atau *batal*."
+          );
           clearTimeout(session.timeout);
           clearTimeout(session.warningTimeout);
           clearTimeout(session.noReplyTimeout);
           delete userMenuContext[chatId];
-        } else {
-          const expectReply = shouldExpectQuickReply(session);
-          setMenuTimeout(chatId, waClient, expectReply);
         }
-      } else {
-        await waClient.sendMessage(
-          chatId,
-          "⚠️ Sesi menu user tidak dikenal, silakan ketik *userrequest* ulang atau *batal*."
-        );
-        clearTimeout(session.timeout);
-        clearTimeout(session.warningTimeout);
-        clearTimeout(session.noReplyTimeout);
-        delete userMenuContext[chatId];
+      } finally {
+        // Always release the lock when done
+        releaseLock();
       }
       return;
     }
