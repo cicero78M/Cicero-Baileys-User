@@ -1110,7 +1110,7 @@ Status: 🟢 AKTIF, Exception: False
       ? await userModel.findUserByIdAndClient(nrp, clientId)
       : await userModel.findUserById(nrp);
     if (!user) {
-      await waClient.sendMessage(chatId, `❌ User dengan NRP/NIP *${nrp}* tidak ditemukan. Hubungi Opr Humas Polres Anda.`);
+      await waClient.sendMessage(chatId, `❌ User dengan NRP/NIP *${nrp}* tidak ditemukan. Hubungi Opr CICERO Polres Anda.`);
       session.step = "main";
       return oprRequestHandlers.main(session, chatId, "", waClient, pool, userModel);
     }
@@ -2790,7 +2790,7 @@ Balas *angka* (1/2) sesuai status baru, atau *batal* untuk keluar.
 
     const user = await userModel.findUserByIdAndClient(nrp, clientId);
     if (!user) {
-      await waClient.sendMessage(chatId, `❌ User dengan NRP/NIP *${nrp}* tidak ditemukan. Hubungi Opr Humas Polres Anda.`);
+      await waClient.sendMessage(chatId, `❌ User dengan NRP/NIP *${nrp}* tidak ditemukan. Hubungi Opr CICERO Polres Anda.`);
     } else {
       const roles = await userModel.getUserRoles(user.user_id);
       if (!hasOperatorRole(roles)) {
