@@ -22,6 +22,7 @@ export const env = cleanEnv(process.env, {
   ADMIN_WHATSAPP: str({ default: '' }),
   APP_SESSION_NAME: str({ default: '' }),
   USER_WA_CLIENT_ID: str({ default: 'wa-userrequest' }),
+  WA_AUTO_START_USER_MENU: bool({ default: false }),
   WA_WEB_VERSION: str({ default: '' }),
   WA_WEB_VERSION_CACHE_URL: str({
     default:
