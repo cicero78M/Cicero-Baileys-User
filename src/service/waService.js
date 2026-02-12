@@ -37,12 +37,11 @@ import {
 } from "../handler/fetchpost/tiktokFetchPost.js";
 import { fetchInstagramProfile } from "./instagramApi.js";
 import { fetchTiktokProfile } from "./tiktokRapidService.js";
+import { authorize, searchByNumbers, saveGoogleContact } from "./googleContactsService.js";
 import {
-  saveContactIfNew,
-  authorize,
-  searchByNumbers,
-  saveGoogleContact,
-} from "./googleContactsService.js";
+  enqueueContactSync,
+  initializeContactSyncWorker,
+} from "./contactSyncQueue.js";
 
 import {
   absensiLikes,
@@ -187,6 +186,8 @@ function writeRateLimitedWaWarn(rateKey, payload) {
 const messageQueues = new WeakMap();
 const sendFailureMetrics = new Map();
 const clientMessageHandlers = new Map();
+
+initializeContactSyncWorker();
 
 const shouldInitWhatsAppClients = process.env.WA_SERVICE_SKIP_INIT !== "true";
 const missingChromeRemediationHint =
@@ -1779,9 +1780,16 @@ export function createHandleMessage(waClient, options = {}) {
       savedInWhatsapp: false,
       user: null,
     };
-    // Save contact for non-group chats
+    // Async contact sync queue for non-group chats (off hot path)
     if (!chatId.endsWith("@g.us")) {
-      await saveContactIfNew(chatId);
+      enqueueContactSync(chatId, {
+        source: "createHandleMessage",
+        chatId,
+      }).catch((error) => {
+        console.warn(
+          `${clientLabel} failed to enqueue contact sync for ${chatId}: ${error.message}`
+        );
+      });
     }
 
     let cachedUserByWa = null;
@@ -1842,11 +1850,16 @@ export function createHandleMessage(waClient, options = {}) {
 
       if (user && !savedInDb) {
         try {
-          await saveContactIfNew(chatId);
-          savedInDb = true;
+          const enqueueResult = await enqueueContactSync(chatId, {
+            source: "mutual_reminder",
+            chatId,
+          });
+          if (enqueueResult.enqueued) {
+            savedInDb = true;
+          }
         } catch (err) {
           console.error(
-            `${clientLabel} failed to persist contact for ${chatId}: ${err.message}`
+            `${clientLabel} failed to enqueue contact sync for ${chatId}: ${err.message}`
           );
         }
       }

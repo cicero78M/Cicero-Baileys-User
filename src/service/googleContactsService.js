@@ -51,6 +51,128 @@ function addToCache(phone) {
   processedContacts.set(phone, Date.now() + contactCacheTtl);
 }
 
+function normalizePhone(chatIdOrPhone = '') {
+  return String(chatIdOrPhone).replace(/[^0-9]/g, '');
+}
+
+async function upsertSavedContact(phone, resourceName) {
+  await query(
+    `INSERT INTO saved_contact (phone_number, resource_name)
+     VALUES ($1, $2)
+     ON CONFLICT (phone_number) DO UPDATE SET resource_name = EXCLUDED.resource_name`,
+    [phone, resourceName]
+  );
+}
+
+async function resolveDisplayName(phone) {
+  let displayName = phone;
+  try {
+    const { rows } = await query(
+      `SELECT c.nama AS client_name
+       FROM dashboard_user du
+       JOIN dashboard_user_clients duc ON du.dashboard_user_id = duc.dashboard_user_id
+       JOIN clients c ON duc.client_id = c.client_id
+       WHERE du.whatsapp = $1
+       UNION
+       SELECT c.nama AS client_name FROM clients c WHERE c.client_operator = $1
+       LIMIT 1`,
+      [phone]
+    );
+    const clientName = rows[0]?.client_name;
+    if (clientName) displayName = `Admin ${clientName}`;
+  } catch (lookupErr) {
+    console.error('[GOOGLE CONTACT] client lookup failed:', lookupErr.message);
+  }
+  return displayName;
+}
+
+const inflightSyncByPhone = new Map();
+
+async function syncContactByPhone(phone, options = {}) {
+  const { skipCache = false } = options;
+  if (!phone || (!skipCache && isCached(phone))) {
+    return { ok: true, status: 'cached_skip', phone };
+  }
+
+  const existingTask = inflightSyncByPhone.get(phone);
+  if (existingTask) {
+    return existingTask;
+  }
+
+  const syncTask = (async () => {
+    try {
+      const check = await query(
+        'SELECT phone_number, resource_name FROM saved_contact WHERE phone_number = $1',
+        [phone]
+      );
+      if (check.rowCount > 0 && check.rows[0]?.resource_name) {
+        addToCache(phone);
+        return { ok: true, status: 'already_saved', phone };
+      }
+
+      const auth = await authorize();
+      if (!auth) {
+        return { ok: false, status: 'auth_unavailable', phone };
+      }
+
+      if (check.rowCount > 0 && !check.rows[0]?.resource_name) {
+        const existing = await searchByNumbers(auth, [phone]);
+        if (existing[phone]) {
+          await upsertSavedContact(phone, existing[phone]);
+          addToCache(phone);
+          return { ok: true, status: 'linked_existing_resource', phone };
+        }
+        try {
+          const { rows } = await query(
+            'SELECT nama FROM "user" WHERE whatsapp = $1 LIMIT 1',
+            [phone]
+          );
+          const userName = rows[0]?.nama || phone;
+          const resourceName = await saveGoogleContact(auth, {
+            name: userName,
+            phone,
+          });
+          await upsertSavedContact(phone, resourceName);
+          addToCache(phone);
+          return { ok: true, status: 'created_for_user', phone };
+        } catch (lookupErr) {
+          console.error('[GOOGLE CONTACT] user lookup failed:', lookupErr.message);
+          return { ok: false, status: 'user_lookup_failed', phone };
+        }
+      }
+
+      const exists = await searchByNumbers(auth, [phone]);
+      if (exists[phone]) {
+        await upsertSavedContact(phone, exists[phone]);
+        addToCache(phone);
+        return { ok: true, status: 'found_existing_google_contact', phone };
+      }
+
+      const displayName = await resolveDisplayName(phone);
+      const resourceName = await saveGoogleContact(auth, {
+        name: displayName,
+        phone,
+      });
+      await upsertSavedContact(phone, resourceName);
+      addToCache(phone);
+      return { ok: true, status: 'created_admin_contact', phone };
+    } catch (err) {
+      const status = err?.response?.status || err.code;
+      console.error(
+        '[GOOGLE CONTACT] Failed to save contact:',
+        err.message,
+        status ? `(status ${status})` : ''
+      );
+      return { ok: false, status: 'sync_failed', phone };
+    } finally {
+      inflightSyncByPhone.delete(phone);
+    }
+  })();
+
+  inflightSyncByPhone.set(phone, syncTask);
+  return syncTask;
+}
+
 export async function authorize() {
   if (shouldSkipAuthAttempt()) return null;
   let credentials;
@@ -163,105 +285,15 @@ export async function saveGoogleContact(auth, { name, phone }) {
 }
 
 export async function saveContactIfNew(chatId) {
-  const phone = (chatId || '').replace(/[^0-9]/g, '');
-  if (!phone || isCached(phone)) return;
-  try {
-    const check = await query(
-      'SELECT phone_number, resource_name FROM saved_contact WHERE phone_number = $1',
-      [phone]
-    );
-    if (check.rowCount > 0 && check.rows[0]?.resource_name) {
-      addToCache(phone);
-      return;
-    }
-    const auth = await authorize();
-    if (!auth) return;
+  const phone = normalizePhone(chatId);
+  if (!phone) return;
+  await syncContactByPhone(phone);
+}
 
-    if (check.rowCount > 0 && !check.rows[0]?.resource_name) {
-      const existing = await searchByNumbers(auth, [phone]);
-      if (existing[phone]) {
-        await query(
-          `INSERT INTO saved_contact (phone_number, resource_name)
-           VALUES ($1, $2)
-           ON CONFLICT (phone_number) DO UPDATE SET resource_name = EXCLUDED.resource_name`,
-          [phone, existing[phone]]
-        );
-        addToCache(phone);
-        return;
-      }
-      try {
-        const { rows } = await query(
-          'SELECT nama FROM "user" WHERE whatsapp = $1 LIMIT 1',
-          [phone]
-        );
-        const userName = rows[0]?.nama || phone;
-        const resourceName = await saveGoogleContact(auth, {
-          name: userName,
-          phone,
-        });
-        await query(
-          `INSERT INTO saved_contact (phone_number, resource_name)
-           VALUES ($1, $2)
-           ON CONFLICT (phone_number) DO UPDATE SET resource_name = EXCLUDED.resource_name`,
-          [phone, resourceName]
-        );
-        addToCache(phone);
-        return;
-      } catch (lookupErr) {
-        console.error('[GOOGLE CONTACT] user lookup failed:', lookupErr.message);
-        return;
-      }
-    }
-
-    const exists = await searchByNumbers(auth, [phone]);
-    if (exists[phone]) {
-      await query(
-        `INSERT INTO saved_contact (phone_number, resource_name)
-         VALUES ($1, $2)
-         ON CONFLICT (phone_number) DO UPDATE SET resource_name = EXCLUDED.resource_name`,
-        [phone, exists[phone]]
-      );
-      addToCache(phone);
-      return;
-    }
-    let displayName = phone;
-    try {
-      const { rows } = await query(
-        `SELECT c.nama AS client_name
-         FROM dashboard_user du
-         JOIN dashboard_user_clients duc ON du.dashboard_user_id = duc.dashboard_user_id
-         JOIN clients c ON duc.client_id = c.client_id
-         WHERE du.whatsapp = $1
-         UNION
-         SELECT c.nama AS client_name FROM clients c WHERE c.client_operator = $1
-         LIMIT 1`,
-        [phone]
-      );
-      const clientName = rows[0]?.client_name;
-      if (clientName) displayName = `Admin ${clientName}`;
-    } catch (lookupErr) {
-      console.error(
-        '[GOOGLE CONTACT] client lookup failed:',
-        lookupErr.message
-      );
-    }
-    const resourceName = await saveGoogleContact(auth, {
-      name: displayName,
-      phone,
-    });
-    await query(
-      `INSERT INTO saved_contact (phone_number, resource_name)
-       VALUES ($1, $2)
-       ON CONFLICT (phone_number) DO UPDATE SET resource_name = EXCLUDED.resource_name`,
-      [phone, resourceName]
-    );
-    addToCache(phone);
-  } catch (err) {
-    const status = err?.response?.status || err.code;
-    console.error(
-      '[GOOGLE CONTACT] Failed to save contact:',
-      err.message,
-      status ? `(status ${status})` : ''
-    );
+export async function syncContactForWorker(chatIdOrPhone) {
+  const phone = normalizePhone(chatIdOrPhone);
+  if (!phone) {
+    return { ok: false, status: 'invalid_phone', phone: null };
   }
+  return syncContactByPhone(phone, { skipCache: false });
 }
