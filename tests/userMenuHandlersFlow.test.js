@@ -338,4 +338,100 @@ describe("userMenuHandlers conversational flow", () => {
     expect(waClient.sendMessage).not.toHaveBeenCalled();
     expect(session.exit).toBeUndefined();
   });
+
+  it("stays silent when confirmUserByWaUpdate receives empty message", async () => {
+    const session = {};
+
+    await userMenuHandlers.confirmUserByWaUpdate(
+      session,
+      chatId,
+      "",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
+
+  it("stays silent when confirmBindUpdate receives empty message", async () => {
+    const session = {};
+
+    await userMenuHandlers.confirmBindUpdate(
+      session,
+      chatId,
+      "",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
+
+  it("stays silent when updateAskField receives empty message", async () => {
+    const session = { isDitbinmas: false };
+
+    await userMenuHandlers.updateAskField(
+      session,
+      chatId,
+      "",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
+
+  it("stays silent when updateAskValue receives empty message", async () => {
+    const session = { updateUserId: "123", updateField: "nama" };
+
+    await userMenuHandlers.updateAskValue(
+      session,
+      chatId,
+      "",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
+
+  it("stays silent when tanyaUpdateMyData receives whitespace-only message", async () => {
+    const session = {};
+
+    await userMenuHandlers.tanyaUpdateMyData(
+      session,
+      chatId,
+      "   ",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
+
+  it("stays silent when confirmUserByWaUpdate receives whitespace-only message", async () => {
+    const session = {};
+
+    await userMenuHandlers.confirmUserByWaUpdate(
+      session,
+      chatId,
+      " \t ",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(session.exit).toBeUndefined();
+  });
 });
