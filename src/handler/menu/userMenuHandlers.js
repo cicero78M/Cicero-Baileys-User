@@ -59,7 +59,7 @@ export const userMenuHandlers = {
   main: async (session, chatId, _text, waClient, _pool, userModel) => {
     const pengirim = normalizeWhatsappNumber(chatId);
     console.log(`[userrequest] Looking up user: chatId=${chatId}, normalized=${pengirim}`);
-    const userByWA = await userModel.findUserByWhatsApp(pengirim);
+    const userByWA = await userModel.findUserRegistrationProfileByWhatsApp(pengirim);
 
     if (userByWA) {
       console.log(`[userrequest] User found: user_id=${userByWA.user_id}, nama=${userByWA.nama}`);
@@ -192,7 +192,7 @@ export const userMenuHandlers = {
     const digits = validation.digits;
     
     try {
-      const user = await userModel.findUserById(digits);
+      const user = await userModel.findUserRegistrationProfileById(digits);
       if (!user) {
         await waClient.sendMessage(
           chatId,

@@ -425,6 +425,17 @@ export async function findUserById(user_id) {
   return rows[0];
 }
 
+export async function findUserRegistrationProfileById(userId) {
+  const uid = normalizeUserId(userId);
+  const { rows } = await query(
+    `SELECT user_id, nama, whatsapp, status, wa_notification_opt_in
+     FROM "user"
+     WHERE user_id = $1`,
+    [uid]
+  );
+  return rows[0] || null;
+}
+
 export async function findUserByEmail(email) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) return null;
@@ -637,6 +648,17 @@ export async function findUserByWhatsApp(wa) {
   );
   console.log(`[userModel] findUserByWhatsApp result: ${rows.length > 0 ? `found user_id=${rows[0].user_id}` : 'NOT FOUND'}`);
   return rows[0];
+}
+
+export async function findUserRegistrationProfileByWhatsApp(wa) {
+  if (!wa) return null;
+  const { rows } = await query(
+    `SELECT user_id, nama, whatsapp, status, wa_notification_opt_in
+     FROM "user"
+     WHERE whatsapp = $1`,
+    [wa]
+  );
+  return rows[0] || null;
 }
 
 export async function findUserByIdAndWhatsApp(userId, wa) {
