@@ -2527,7 +2527,6 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
     return;
   }
 
-  const normalizedWabotCmd = text.toLowerCase().replace(/\s+/g, "");
   if (
     normalizedWabotCmd === "wabot" ||
     normalizedWabotCmd === "wabotditbinmas" ||
