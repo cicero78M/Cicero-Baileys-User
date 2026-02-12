@@ -92,6 +92,7 @@ import {
   clearSession,
   acquireProcessingLock,
   isProcessing,
+  isInTimeoutCooldown,
 } from "../utils/sessionsHelper.js";
 
 import {
@@ -2671,7 +2672,8 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       allowUserMenu &&
       !isAdminCommand &&
       lowerText &&
-      !hasAnySession()
+      !hasAnySession() &&
+      !isInTimeoutCooldown(chatId)  // Don't auto-start if just timed out
     ) {
       // Check if user is already linked
       const user = await getUserByWa();

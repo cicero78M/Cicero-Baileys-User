@@ -11,6 +11,7 @@ const MENU_TIMEOUT = 2 * 60 * 1000; // 2 menit
 const BIND_TIMEOUT = 2 * 60 * 1000; // 2 menit
 const NO_REPLY_TIMEOUT = 120 * 1000; // 120 detik (ditingkatkan dari 90 detik)
 const USER_REQUEST_LINK_TIMEOUT = 2 * 60 * 1000; // 2 menit
+const AUTO_START_COOLDOWN = 30 * 1000; // 30 detik cooldown setelah timeout
 
 export const SESSION_EXPIRED_MESSAGE =
   "⏰ *Sesi Telah Berakhir*\n\nSesi Anda telah berakhir karena tidak ada aktivitas selama 5 menit.\n\n📝 *Tips:* Siapkan informasi yang diperlukan sebelum memulai sesi untuk menghindari timeout.\n\nUntuk memulai lagi, ketik *userrequest*.";
@@ -23,6 +24,9 @@ export const waBindSessions = {};          // { chatId: {step, ...} }
 export const operatorOptionSessions = {};  // { chatId: {timeout} }
 export const adminOptionSessions = {};     // { chatId: {timeout} }
 const clientRequestSessions = {};          // { chatId: {step, data, ...} }
+
+// Track when sessions timeout to prevent immediate auto-start
+const sessionTimeoutCooldowns = {};        // { chatId: timestamp }
 
 // =======================
 // MESSAGE PROCESSING LOCKS
@@ -121,15 +125,20 @@ export function setMenuTimeout(chatId, waClient, expectReply = false) {
     clearTimeout(ctx.noReplyTimeout);
   }
   ctx.timeout = setTimeout(() => {
-    if (waClient) {
+    // Check if session still exists before sending message
+    if (userMenuContext[chatId] && waClient) {
+      // Set cooldown first to ensure it's set even if message sending fails
+      setSessionTimeoutCooldown(chatId);
+      
       waClient
         .sendMessage(chatId, SESSION_EXPIRED_MESSAGE)
         .catch((e) => console.error(e));
+      delete userMenuContext[chatId];
     }
-    delete userMenuContext[chatId];
   }, USER_MENU_TIMEOUT);
   ctx.warningTimeout = setTimeout(() => {
-    if (waClient) {
+    // Check if session still exists before sending warning
+    if (userMenuContext[chatId] && waClient) {
       waClient
         .sendMessage(
           chatId,
@@ -140,7 +149,8 @@ export function setMenuTimeout(chatId, waClient, expectReply = false) {
   }, USER_MENU_TIMEOUT - MENU_WARNING);
   if (expectReply) {
     ctx.noReplyTimeout = setTimeout(() => {
-      if (waClient) {
+      // Check if session still exists before sending reminder
+      if (userMenuContext[chatId] && waClient) {
         waClient
           .sendMessage(
             chatId,
@@ -229,6 +239,39 @@ export function getSession(chatId) {
  */
 export function clearSession(chatId) {
   delete clientRequestSessions[chatId];
+}
+
+// =======================
+// COOLDOWN MANAGEMENT FOR AUTO-START
+// =======================
+
+/**
+ * Set cooldown after session timeout to prevent immediate auto-start
+ * @param {string} chatId 
+ */
+export function setSessionTimeoutCooldown(chatId) {
+  sessionTimeoutCooldowns[chatId] = Date.now();
+  // Auto-cleanup after cooldown period
+  setTimeout(() => {
+    delete sessionTimeoutCooldowns[chatId];
+  }, AUTO_START_COOLDOWN);
+}
+
+/**
+ * Check if chatId is in cooldown period after timeout
+ * @param {string} chatId 
+ * @returns {boolean}
+ */
+export function isInTimeoutCooldown(chatId) {
+  const cooldownTime = sessionTimeoutCooldowns[chatId];
+  if (!cooldownTime) return false;
+  
+  const elapsed = Date.now() - cooldownTime;
+  if (elapsed >= AUTO_START_COOLDOWN) {
+    delete sessionTimeoutCooldowns[chatId];
+    return false;
+  }
+  return true;
 }
 
 // =======================

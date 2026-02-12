@@ -34,6 +34,20 @@ export const closeSession = async (
   waClient,
   message = SESSION_CLOSED_MESSAGE
 ) => {
+  // Clear all timeout handlers to prevent messages after session close
+  if (session.timeout) {
+    clearTimeout(session.timeout);
+    session.timeout = null;
+  }
+  if (session.warningTimeout) {
+    clearTimeout(session.warningTimeout);
+    session.warningTimeout = null;
+  }
+  if (session.noReplyTimeout) {
+    clearTimeout(session.noReplyTimeout);
+    session.noReplyTimeout = null;
+  }
+  
   session.exit = true;
   await waClient.sendMessage(chatId, message);
 };
