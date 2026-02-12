@@ -1,6 +1,6 @@
 # User Request Menu - Documentation
 
-Last updated: 2026-02-08
+Last updated: 2026-02-12
 
 ## Overview
 
@@ -157,6 +157,10 @@ Display formatting utilities:
 - Warning at 4 minutes
 - Auto-cleanup on timeout
 - User must restart with "userrequest"
+- **Anti-stale timeout guard (activity sequence):** every valid incoming message for an active `userrequest` session increments a monotonic `activitySeq` and refreshes `lastActivityAt`.
+- When `warningTimeout` and `noReplyTimeout` are scheduled, each timer stores a snapshot of `activitySeq`.
+- Before timeout/warning/reminder messages are sent, the timer validates snapshot sequence against the latest session sequence; if sequence changed, stale timeout message is cancelled.
+- UX impact: users no longer receive outdated warning/no-reply/expired notices after they already continued the conversation.
 
 ## Best Practices Applied
 
