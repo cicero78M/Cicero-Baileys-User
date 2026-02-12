@@ -96,6 +96,12 @@ export const userMenuHandlers = {
   // --- Konfirmasi identitas (lihat data)
   confirmUserByWaIdentity: async (session, chatId, text, waClient, pool, userModel) => {
     const answer = text.trim().toLowerCase();
+    
+    // If user sends empty message, stay silent to avoid confusion
+    if (!answer) {
+      return;
+    }
+    
     if (answer === "ya") {
       session.identityConfirmed = true;
       session.step = "tanyaUpdateMyData";
@@ -121,6 +127,12 @@ export const userMenuHandlers = {
   // --- Konfirmasi identitas untuk update data
   confirmUserByWaUpdate: async (session, chatId, text, waClient, pool, userModel) => {
     const answer = text.trim().toLowerCase();
+    
+    // If user sends empty message, stay silent to avoid confusion
+    if (!answer) {
+      return;
+    }
+    
     if (answer === "ya") {
       session.identityConfirmed = true;
       session.updateUserId = session.user_id;
@@ -140,6 +152,12 @@ export const userMenuHandlers = {
   // --- Input User ID manual
   inputUserId: async (session, chatId, text, waClient, pool, userModel) => {
     const lower = text.trim().toLowerCase();
+    
+    // If user sends empty message or just whitespace, stay silent to avoid confusion
+    if (!lower) {
+      return;
+    }
+    
     if (lower === "batal") {
       session.exit = true;
       await waClient.sendMessage(chatId, "✅ Menu ditutup. Terima kasih.");
@@ -222,6 +240,12 @@ export const userMenuHandlers = {
 
   confirmBindUser: async (session, chatId, text, waClient, pool, userModel) => {
     const answer = text.trim().toLowerCase();
+    
+    // If user sends empty message, stay silent to avoid confusion
+    if (!answer) {
+      return;
+    }
+    
     const waNum = normalizeWhatsappNumber(chatId);
     console.log(`[userrequest] Binding: chatId=${chatId}, normalized=${waNum}`);
     if (answer === "ya") {
@@ -293,6 +317,12 @@ export const userMenuHandlers = {
 
   confirmBindUpdate: async (session, chatId, text, waClient, pool, userModel) => {
     const ans = text.trim().toLowerCase();
+    
+    // If user sends empty message, stay silent to avoid confusion
+    if (!ans) {
+      return;
+    }
+    
     const waNum = normalizeWhatsappNumber(chatId);
     if (ans === "ya") {
       try {
@@ -350,6 +380,12 @@ export const userMenuHandlers = {
     }
 
     const lower = text.trim().toLowerCase();
+    
+    // If user sends empty message, stay silent to avoid confusion
+    if (!lower) {
+      return;
+    }
+    
     const maxOption = allowedFields.length;
     if (lower === "batal") {
       session.exit = true;
@@ -415,6 +451,12 @@ export const userMenuHandlers = {
 
   updateAskValue: async (session, chatId, text, waClient, pool, userModel) => {
     const lower = text.trim().toLowerCase();
+    
+    // If user sends empty message, stay silent to avoid confusion
+    if (!lower) {
+      return;
+    }
+    
     if (lower === "batal") {
       session.exit = true;
       await waClient.sendMessage(chatId, "✅ Perubahan dibatalkan. Ketik *userrequest* untuk memulai lagi.");
@@ -537,6 +579,12 @@ export const userMenuHandlers = {
 
   tanyaUpdateMyData: async (session, chatId, text, waClient, pool, userModel) => {
     const answer = text.trim().toLowerCase();
+    
+    // If user sends empty message, stay silent to avoid confusion
+    if (!answer) {
+      return;
+    }
+    
     if (answer === "ya") {
       // Just transition to next step - don't auto-call the handler
       session.identityConfirmed = true;

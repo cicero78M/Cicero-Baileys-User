@@ -23,9 +23,7 @@ export function shouldSendLightHelpForUnknownMessage({
   lowerText,
   isAdminCommand,
 }) {
-  if (!allowUserMenu || !lowerText || isAdminCommand) {
-    return false;
-  }
-
-  return !lowerText.endsWith("request");
+  // Never send "command not recognized" message anymore
+  // Instead, let the main flow check if user is linked and start linking workflow if needed
+  return false;
 }

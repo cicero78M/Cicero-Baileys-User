@@ -2666,17 +2666,22 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       return;
     }
 
+    // Check if user needs account linking when no session exists
     if (
-      shouldSendLightHelpForUnknownMessage({
-        allowUserMenu,
-        lowerText,
-        isAdminCommand,
-      })
+      allowUserMenu &&
+      !isAdminCommand &&
+      lowerText &&
+      !hasAnySession()
     ) {
-      await waClient.sendMessage(
-        chatId,
-        "🤖 Perintah belum dikenali. Ketik *userrequest* untuk bantuan singkat."
-      );
+      // Check if user is already linked
+      const user = await getUserByWa();
+      
+      if (!user) {
+        // User not linked - start account linking workflow automatically
+        await startUserMenuSession();
+        return;
+      }
+      // User is linked but sent unknown message - stay silent to avoid confusion
       return;
     }
 
