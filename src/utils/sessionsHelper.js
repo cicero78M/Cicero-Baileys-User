@@ -53,9 +53,13 @@ export async function acquireProcessingLock(chatId) {
   // Create a new lock with timeout safety
   let releaseLock;
   let timeoutId;
+  let lockReleased = false;  // Flag to prevent double-release
   
   processingLocks[chatId] = new Promise(resolve => {
     releaseLock = () => {
+      if (lockReleased) return;  // Prevent double-release
+      lockReleased = true;
+      
       clearTimeout(timeoutId);
       delete processingLocks[chatId];
       resolve();
@@ -72,8 +76,8 @@ export async function acquireProcessingLock(chatId) {
   
   // Safety timeout: auto-release after 30 seconds to prevent permanent deadlock
   timeoutId = setTimeout(() => {
-    // Only force release if lock still exists
-    if (processingLocks[chatId]) {
+    // Only force release if lock still exists and not already released
+    if (processingLocks[chatId] && !lockReleased) {
       console.warn(`[acquireProcessingLock] Lock timeout for chatId: ${chatId}, forcing release`);
       releaseLock();
     }
