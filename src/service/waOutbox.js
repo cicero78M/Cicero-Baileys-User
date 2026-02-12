@@ -1,12 +1,22 @@
 import { Queue, Worker } from 'bullmq';
 import Bottleneck from 'bottleneck';
+import { env } from '../config/env.js';
 
 /**
  * Simple outbox queue for WhatsApp messages.
  * Jobs are rate limited globally to avoid hitting API limits.
  */
 const queueName = 'wa-outbox';
-export const outboxQueue = new Queue(queueName);
+const redisUrl = new URL(env.REDIS_URL);
+const queueConnection = {
+  host: redisUrl.hostname,
+  port: Number(redisUrl.port || 6379),
+  ...(redisUrl.username ? { username: decodeURIComponent(redisUrl.username) } : {}),
+  ...(redisUrl.password ? { password: decodeURIComponent(redisUrl.password) } : {}),
+  ...(redisUrl.protocol === 'rediss:' ? { tls: {} } : {}),
+};
+
+export const outboxQueue = new Queue(queueName, { connection: queueConnection });
 
 const outboxMetrics = {
   processed: 0,
@@ -38,15 +48,19 @@ export async function enqueueSend(jid, payload, options = {}) {
 
 export function attachWorker(adapter) {
   // Adapter must implement sendText and optionally sendMedia
-  const worker = new Worker(queueName, async (job) => {
-    const { jid, payload } = job.data;
-    return limiter.schedule(async () => {
-      if (payload.mediaPath && adapter.sendMedia) {
-        return adapter.sendMedia(jid, payload.mediaPath, payload.text);
-      }
-      return adapter.sendText(jid, payload.text);
-    });
-  });
+  const worker = new Worker(
+    queueName,
+    async (job) => {
+      const { jid, payload } = job.data;
+      return limiter.schedule(async () => {
+        if (payload.mediaPath && adapter.sendMedia) {
+          return adapter.sendMedia(jid, payload.mediaPath, payload.text);
+        }
+        return adapter.sendText(jid, payload.text);
+      });
+    },
+    { connection: queueConnection }
+  );
 
   worker.on('completed', (job) => {
     const latencyMs = Math.max(0, Date.now() - Number(job?.data?.enqueuedAt || Date.now()));

@@ -112,3 +112,16 @@ await sendUserMessage(chatId, reminderText, {
 - Jika traffic meningkat, sesuaikan nilai env limiter secara bertahap.
 - Monitor frekuensi `wa_outbound_throttled` dan `wa_outbound_deferred` untuk tuning kapasitas.
 - Monitor metrik outbox (`queueDepth` dan `sendLatencyMs`) melalui endpoint health `GET /wa-health`.
+
+## Koneksi Redis untuk `wa-outbox`
+
+Modul `wa-outbox` sekarang **wajib** menggunakan koneksi Redis yang dibangun dari `REDIS_URL`.
+
+- Queue dan worker BullMQ pada `src/service/waOutbox.js` menggunakan object `connection` hasil parse `REDIS_URL` (host, port, opsional username/password, dan `tls` untuk protocol `rediss:`).
+- Tanpa konfigurasi `connection` yang valid, proses enqueue/worker bisa gagal terkoneksi ke Redis sehingga job tidak akan diproses dengan benar.
+
+Gejala error umum jika koneksi Redis tidak tersuplai/invalid:
+
+- Queue tidak bisa add job (`ECONNREFUSED`, `ENOTFOUND`, atau timeout ke Redis).
+- Worker tidak mengambil job (antrian menumpuk pada status waiting/delayed).
+- Metrik outbox menunjukkan antrean meningkat tetapi `processed` tidak bertambah.
