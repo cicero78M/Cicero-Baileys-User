@@ -112,6 +112,13 @@ await sendUserMessage(chatId, reminderText, {
 - Jika traffic meningkat, sesuaikan nilai env limiter secara bertahap.
 - Monitor frekuensi `wa_outbound_throttled` dan `wa_outbound_deferred` untuk tuning kapasitas.
 - Monitor metrik outbox (`queueDepth` dan `sendLatencyMs`) melalui endpoint health `GET /wa-health`.
+- Pastikan Redis untuk outbox menggunakan versi minimum **>= 6.2**.
+- Langkah verifikasi versi Redis:
+  - `redis-cli INFO server | grep redis_version`
+  - atau jalankan `redis-cli INFO server`, lalu cek field `redis_version`.
+- Risiko jika tetap memakai Redis 6.0.x:
+  - Sistem tetap bisa beroperasi, tetapi startup WA akan mengeluarkan warning terstruktur `wa_outbox_redis_version_below_minimum`.
+  - Behavior queue BullMQ bisa kurang optimal pada skenario delay/retry dan observability ketika trafik tinggi.
 
 ## Koneksi Redis untuk `wa-outbox`
 
