@@ -158,6 +158,10 @@ export function setMenuTimeout(chatId, waClient, expectReply = false) {
     userMenuContext[chatId] = {};
   }
   const ctx = userMenuContext[chatId];
+  if (!Number.isFinite(ctx.activitySeq)) {
+    ctx.activitySeq = 0;
+  }
+  ctx.lastActivityAt = Date.now();
   if (ctx.timeout) {
     clearTimeout(ctx.timeout);
   }
@@ -167,9 +171,11 @@ export function setMenuTimeout(chatId, waClient, expectReply = false) {
   if (ctx.noReplyTimeout) {
     clearTimeout(ctx.noReplyTimeout);
   }
+  const timeoutSeqSnapshot = ctx.activitySeq;
   ctx.timeout = setTimeout(() => {
+    const latestCtx = userMenuContext[chatId];
     // Check if session still exists before sending message
-    if (userMenuContext[chatId] && waClient) {
+    if (latestCtx && latestCtx.activitySeq === timeoutSeqSnapshot && waClient) {
       // Set cooldown first to ensure it's set even if message sending fails
       setSessionTimeoutCooldown(chatId);
       
@@ -179,9 +185,11 @@ export function setMenuTimeout(chatId, waClient, expectReply = false) {
       delete userMenuContext[chatId];
     }
   }, USER_MENU_TIMEOUT);
+  const warningSeqSnapshot = ctx.activitySeq;
   ctx.warningTimeout = setTimeout(() => {
+    const latestCtx = userMenuContext[chatId];
     // Check if session still exists before sending warning
-    if (userMenuContext[chatId] && waClient) {
+    if (latestCtx && latestCtx.activitySeq === warningSeqSnapshot && waClient) {
       waClient
         .sendMessage(
           chatId,
@@ -191,9 +199,11 @@ export function setMenuTimeout(chatId, waClient, expectReply = false) {
     }
   }, USER_MENU_TIMEOUT - MENU_WARNING);
   if (expectReply) {
+    const noReplySeqSnapshot = ctx.activitySeq;
     ctx.noReplyTimeout = setTimeout(() => {
+      const latestCtx = userMenuContext[chatId];
       // Check if session still exists before sending reminder
-      if (userMenuContext[chatId] && waClient) {
+      if (latestCtx && latestCtx.activitySeq === noReplySeqSnapshot && waClient) {
         waClient
           .sendMessage(
             chatId,
@@ -203,6 +213,19 @@ export function setMenuTimeout(chatId, waClient, expectReply = false) {
       }
     }, NO_REPLY_TIMEOUT);
   }
+}
+
+/**
+ * Tandai aktivitas terbaru pada sesi menu user dengan counter monotonic.
+ * @param {object} session
+ */
+export function markUserMenuActivity(session) {
+  if (!session || typeof session !== "object") {
+    return;
+  }
+  const currentSeq = Number.isFinite(session.activitySeq) ? session.activitySeq : 0;
+  session.activitySeq = currentSeq + 1;
+  session.lastActivityAt = Date.now();
 }
 
 // Timeout untuk proses binding WhatsApp

@@ -79,6 +79,7 @@ import {
   userRequestLinkSessions,
   knownUserSet,
   setMenuTimeout,
+  markUserMenuActivity,
   waBindSessions,
   setBindTimeout,
   operatorOptionSessions,
@@ -2662,6 +2663,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         const session = userMenuContext[chatId];
         const handler = userMenuHandlers[session.step];
         if (handler) {
+          markUserMenuActivity(session);
           await handler(session, chatId, text, waClient, pool, userModel);
           
           // Verify session still exists before accessing properties
