@@ -59,7 +59,7 @@ export const userMenuHandlers = {
   main: async (session, chatId, _text, waClient, _pool, userModel) => {
     const pengirim = normalizeWhatsappNumber(chatId);
     console.log(`[userrequest] Looking up user: chatId=${chatId}, normalized=${pengirim}`);
-    const userByWA = await userModel.findUserRegistrationProfileByWhatsApp(pengirim);
+    const userByWA = await userModel.findUserByWhatsApp(pengirim);
 
     if (userByWA) {
       console.log(`[userrequest] User found: user_id=${userByWA.user_id}, nama=${userByWA.nama}`);
