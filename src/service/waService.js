@@ -1856,6 +1856,23 @@ export function createHandleMessage(waClient, options = {}) {
     const processMessage = async () => {
       const lowerText = text.toLowerCase();
       const trimmedText = text.trim();
+      const normalizedWabotCmd = lowerText.replace(/\s+/g, "");
+      const removedMenuCommands = new Set([
+        "clientrequest",
+        "oprrequest",
+        "dirrequest",
+        "wabot",
+        "wabotditbinmas",
+        "ditbinmas",
+      ]);
+      const removedMenuSessions = new Set([
+        "clientrequest",
+        "oprrequest",
+        "dirrequest",
+        "wabotditbinmas",
+      ]);
+      const isRemovedMenuCommand =
+        removedMenuCommands.has(lowerText) || removedMenuCommands.has(normalizedWabotCmd);
       const isAdminCommand = adminCommands.some((cmd) =>
         lowerText.startsWith(cmd)
       );
@@ -2050,44 +2067,43 @@ export function createHandleMessage(waClient, options = {}) {
       return true;
     };
 
+      const sendRemovedFeatureMessage = async () => {
+        await waClient.sendMessage(
+          chatId,
+          "⚠️ Menu *clientrequest*, *oprrequest*, *dirrequest*, dan *wabot/ditbinmas* sudah dinonaktifkan. Silakan gunakan fitur lain yang tersedia."
+        );
+      };
+
+      if (session && removedMenuSessions.has(session.menu)) {
+        clearSession(chatId);
+        await sendRemovedFeatureMessage();
+        return;
+      }
+
+      if (operatorOptionSessions[chatId]) {
+        delete operatorOptionSessions[chatId];
+        await sendRemovedFeatureMessage();
+        return;
+      }
+
+      if (adminOptionSessions[chatId]) {
+        delete adminOptionSessions[chatId];
+        await sendRemovedFeatureMessage();
+        return;
+      }
+
+      if (isRemovedMenuCommand) {
+        clearSession(chatId);
+        await sendRemovedFeatureMessage();
+        return;
+      }
+
     if (
       trimmedText &&
       BULK_STATUS_HEADER_REGEX.test(trimmedText) &&
       (!session || session.menu === "clientrequest")
     ) {
-      const nextSession = {
-        ...(session || {}),
-        menu: "clientrequest",
-        step: "bulkStatus_process",
-      };
-      setSession(chatId, nextSession);
-      session = getSession(chatId);
-      await runMenuHandler({
-        handlers: clientRequestHandlers,
-        menuName: "clientrequest",
-        session,
-        chatId,
-        text: trimmedText,
-        waClient,
-        clientLabel,
-        args: [
-          pool,
-          userModel,
-          clientService,
-          migrateUsersFromFolder,
-          checkGoogleSheetCsvStatus,
-          importUsersFromGoogleSheet,
-          fetchAndStoreInstaContent,
-          fetchAndStoreTiktokContent,
-          formatClientData,
-          handleFetchLikesInstagram,
-          handleFetchKomentarTiktokBatch,
-        ],
-        invalidStepMessage:
-          "⚠️ Sesi menu client tidak dikenali. Ketik *clientrequest* ulang atau *batal*.",
-        failureMessage:
-          "❌ Terjadi kesalahan pada menu client. Ketik *clientrequest* ulang untuk memulai kembali.",
-      });
+      await sendRemovedFeatureMessage();
       return;
     }
 
