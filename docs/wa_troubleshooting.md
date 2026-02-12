@@ -248,6 +248,25 @@ Field utama:
 2. Cek readiness WhatsApp client (`/wa-health` -> `clients[].isReady`).
 3. Review log error kirim (`wa_send_message_failed`) untuk root cause.
 4. Validasi konektivitas Redis/BullMQ bila queue tidak bergerak.
+5. Verifikasi versi Redis untuk outbox (`wa-outbox`) karena minimum yang direkomendasikan adalah **Redis >= 6.2**.
+
+Contoh cek versi Redis:
+
+```bash
+redis-cli INFO server | grep redis_version
+```
+
+atau:
+
+```bash
+redis-cli INFO server
+# pastikan field redis_version >= 6.2.x
+```
+
+Catatan risiko bila tetap memakai Redis 6.0.x:
+
+- Service tetap bisa jalan, tetapi akan muncul warning startup terstruktur (`wa_outbox_redis_version_below_minimum`).
+- Perilaku queue BullMQ berpotensi tidak optimal (mis. delay/retry/observability metrik outbox kurang stabil saat beban tinggi).
 
 ### 4) Tindakan mitigasi
 
