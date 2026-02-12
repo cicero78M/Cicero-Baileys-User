@@ -89,10 +89,16 @@ WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY=180000
 WA_WWEBJS_PROTOCOL_TIMEOUT_MAX_MS=300000
 # Multiplier kenaikan timeout saat init (opsional)
 WA_WWEBJS_PROTOCOL_TIMEOUT_BACKOFF_MULTIPLIER=1.5
+
+# Kontrol auto-start menu user (opsional, default false)
+# Jika false, menu user hanya dimulai saat command whitelist dikirim (contoh: userrequest)
+WA_AUTO_START_USER_MENU=false
 ```
 Jika `WA_WEB_VERSION_CACHE_URL`, `WA_WEB_VERSION`, dan `WA_WEB_VERSION_RECOMMENDED` sama-sama kosong, adapter akan menonaktifkan local web cache untuk mencegah error `LocalWebCache.persist`. Biarkan salah satu dari variabel tersebut terisi untuk mengaktifkan kembali mekanisme cache versi, dan kosongkan semuanya hanya jika memang ingin menonaktifkan caching.
 `WA_WWEBJS_PROTOCOL_TIMEOUT_MS` memperbesar ambang `Runtime.callFunctionOn` pada Puppeteer; naikkan ke 180000ms jika koneksi ke WhatsApp Web sering lambat atau time out. Override per client bisa di-set lewat alias role berbasis prefix (client ID `wa-gateway*` → `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY`, `wa-user*` → `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_USER`) atau suffix client ID uppercase. Contoh untuk `wa-gateway-prod`: alias `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY=180000` atau suffix eksplisit `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_WA_GATEWAY_PROD=180000`. Dengan begitu, admin tetap pakai default sementara client tertentu bisa diperpanjang.
 Untuk penanganan otomatis saat init sering timeout, adapter dapat menaikkan nilai timeout secara bertahap. Atur batas maksimum lewat `WA_WWEBJS_PROTOCOL_TIMEOUT_MAX_MS` (default 300000ms) dan multiplier kenaikan lewat `WA_WWEBJS_PROTOCOL_TIMEOUT_BACKOFF_MULTIPLIER` (default 1.5). Pastikan batas maksimum lebih tinggi dari timeout dasar agar eskalasi berjalan.
+
+Ketika `WA_AUTO_START_USER_MENU=false`, pesan non-command tanpa sesi aktif tidak lagi memulai flow interaktif panjang. Bot akan memberi help singkat untuk mengarahkan user mengetik `userrequest`.
 Fallback readiness akan melakukan reinit ketika `getState` tetap `unknown` setelah batas retry. Untuk client `WA-GATEWAY` dan `WA-USER`, **clear session hanya dilakukan** jika ada indikasi logout/auth failure (misalnya `LOGGED_OUT/UNPAIRED/CONFLICT/UNPAIRED_IDLE` atau event `auth_failure`) dan folder `session-<clientId>` masih ada. Jika tidak ada indikasi tersebut, sistem tetap reinit tanpa clear session agar sesi valid tidak terhapus, dan log PM2 tetap menandai alasan fallback. Simpan backup folder session sebelum pembersihan manual agar autentikasi bisa dipulihkan.
 
 ### Langkah Login

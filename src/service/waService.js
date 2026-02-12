@@ -104,6 +104,10 @@ import {
   handleComplaintMessageIfApplicable,
 } from "./waAutoComplaintService.js";
 import {
+  shouldAutoStartUserMenu,
+  shouldSendLightHelpForUnknownMessage,
+} from "../utils/waUserMenuPolicy.js";
+import {
   isAdminWhatsApp,
   formatToWhatsAppId,
   formatClientData,
@@ -123,6 +127,7 @@ import {
 dotenv.config();
 
 const debugLoggingEnabled = process.env.WA_DEBUG_LOGGING === "true";
+const userMenuAutoStartCommandWhitelist = new Set(["userrequest"]);
 const LOG_RATE_LIMIT_WINDOW_MS = 60000;
 const rateLimitedLogState = new Map();
 
@@ -2445,11 +2450,31 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       return;
     }
 
-    if (allowUserMenu && !userMenuContext[chatId]) {
-      const started = await startUserMenuSession();
-      if (started) {
-        return;
-      }
+    if (
+      shouldAutoStartUserMenu({
+        allowUserMenu,
+        hasUserMenuSession: Boolean(userMenuContext[chatId]),
+        lowerText,
+        autoStartEnabled: env.WA_AUTO_START_USER_MENU,
+        commandWhitelist: userMenuAutoStartCommandWhitelist,
+      })
+    ) {
+      await startUserMenuSession();
+      return;
+    }
+
+    if (
+      shouldSendLightHelpForUnknownMessage({
+        allowUserMenu,
+        lowerText,
+        isAdminCommand,
+      })
+    ) {
+      await waClient.sendMessage(
+        chatId,
+        "🤖 Perintah belum dikenali. Ketik *userrequest* untuk bantuan singkat."
+      );
+      return;
     }
 
   // ===== Handler Menu Client =====
