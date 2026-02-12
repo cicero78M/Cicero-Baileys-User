@@ -33,6 +33,19 @@ Hot reload hanya memantau kode (`app.js` dan folder `src`). Folder data seperti 
 
 Bot WhatsApp menyediakan perintah utama seperti `oprrequest`, `userrequest`, `dirrequest`, dan command operasional lain sesuai role.
 
+### User Request Workflow
+
+Fitur `userrequest` memungkinkan user untuk:
+- Mendaftarkan nomor WhatsApp ke akun mereka
+- Melihat data profil mereka
+- Mengupdate data profil (nama, pangkat, satfung, jabatan, Instagram, TikTok, dll.)
+
+**Session Timeout**: 5 menit (otomatis di-refresh setiap kali user membalas)
+
+**Dokumentasi Lengkap**:
+- `docs/user_request_quick_guide.md` - Panduan cepat untuk end user (Bahasa Indonesia)
+- `docs/user_workflow_best_practices.md` - Best practices dan troubleshooting untuk developer
+
 ### Runtime WA saat ini
 
 Sistem menjalankan **satu** client WhatsApp runtime:
