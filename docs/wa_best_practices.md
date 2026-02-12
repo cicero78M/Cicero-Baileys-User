@@ -227,6 +227,32 @@ app.get('/health/wa', (req, res) => {
 // No way to check system state
 ```
 
+### Inbound Handler Non-Blocking Acknowledgement ✅
+
+**DO**:
+- Send `sendSeen(chatId)` in fire-and-forget mode (`.catch`) so inbound handler remains non-blocking
+- Apply seen throttling per `chatId` (minimum interval per chat), not global sleep per message
+- Keep seen acknowledgement best-effort and do not affect core business flow
+
+**DON'T**:
+- Use `await sleep(...)` before `sendSeen` inside inbound handler
+- Block all inbound processing for a single chat acknowledgement
+- Share a global seen delay across all chats
+
+**Example**:
+```javascript
+// GOOD: Non-blocking sendSeen with per-chat throttle
+if (shouldDispatchSeen(waClient, chatId)) {
+  waClient.sendSeen(chatId).catch((error) => {
+    console.warn(`[WA] Failed to mark ${chatId} as read`, error);
+  });
+}
+
+// BAD: Blocking handler path
+await sleep(1000);
+await waClient.sendSeen(chatId);
+```
+
 ### 7. Testing Strategy ✅
 
 **DO**:
@@ -599,6 +625,7 @@ For issues or questions:
 
 ## Version History
 
+- **2026-02-12**: Updated `sendSeen` guidance to non-blocking fire-and-forget with per-chat throttling
 - **2024-02-02**: Initial best practices guide created
 - **2024-02-02**: Added memory leak fix documentation
 - **Previous**: Various fixes for message reception, listener preservation, store readiness
