@@ -1,5 +1,7 @@
 // utils/sessionsHelper.js
 
+import { env } from "../config/env.js";
+
 // =======================
 // KONSTANTA & GLOBAL SESSIONS
 // =======================
@@ -12,6 +14,15 @@ const BIND_TIMEOUT = 2 * 60 * 1000; // 2 menit
 const NO_REPLY_TIMEOUT = 120 * 1000; // 120 detik (ditingkatkan dari 90 detik)
 const USER_REQUEST_LINK_TIMEOUT = 2 * 60 * 1000; // 2 menit
 const AUTO_START_COOLDOWN = 30 * 1000; // 30 detik cooldown setelah timeout
+const DEFAULT_PROCESSING_LOCK_TIMEOUT_MS = 30 * 1000;
+
+const getProcessingLockTimeoutMs = () => {
+  const rawTimeoutMs = env.WA_PROCESSING_LOCK_TIMEOUT_MS;
+  if (Number.isFinite(rawTimeoutMs) && rawTimeoutMs >= 5000) {
+    return rawTimeoutMs;
+  }
+  return DEFAULT_PROCESSING_LOCK_TIMEOUT_MS;
+};
 
 export const SESSION_EXPIRED_MESSAGE =
   "⏰ *Sesi Telah Berakhir*\n\nSesi Anda telah berakhir karena tidak ada aktivitas selama 5 menit.\n\n📝 *Tips:* Siapkan informasi yang diperlukan sebelum memulai sesi untuk menghindari timeout.\n\nUntuk memulai lagi, ketik *userrequest*.";
@@ -34,14 +45,18 @@ const sessionTimeoutCooldowns = {};        // { chatId: timestamp }
 
 const processingLocks = {};  // { chatId: Promise }
 const lockQueues = {};       // { chatId: Array<Function> }
+const lockMetadata = {};     // { chatId: { acquiredAt, waitTimeMs, queueDepthOnAcquire, context } }
 
 /**
  * Acquire a processing lock for a chatId to prevent concurrent message handling
  * Uses a queue-based approach to prevent race conditions
  * @param {string} chatId
+ * @param {object} [context={}] Additional context for diagnostics (e.g. currentStep)
  * @returns {Promise<Function>} Release function to call when done
  */
-export async function acquireProcessingLock(chatId) {
+export async function acquireProcessingLock(chatId, context = {}) {
+  const queuedAt = Date.now();
+
   // Create queue if it doesn't exist
   if (!lockQueues[chatId]) {
     lockQueues[chatId] = [];
@@ -58,6 +73,15 @@ export async function acquireProcessingLock(chatId) {
   let releaseLock;
   let timeoutId;
   let lockReleased = false;  // Flag to prevent double-release
+  const processingLockTimeoutMs = getProcessingLockTimeoutMs();
+  const acquiredAt = Date.now();
+
+  lockMetadata[chatId] = {
+    acquiredAt,
+    waitTimeMs: acquiredAt - queuedAt,
+    queueDepthOnAcquire: lockQueues[chatId]?.length || 0,
+    context,
+  };
   
   processingLocks[chatId] = new Promise(resolve => {
     releaseLock = () => {
@@ -66,6 +90,7 @@ export async function acquireProcessingLock(chatId) {
       
       clearTimeout(timeoutId);
       delete processingLocks[chatId];
+      delete lockMetadata[chatId];
       resolve();
       
       // Process next in queue after resolving current lock
@@ -78,14 +103,23 @@ export async function acquireProcessingLock(chatId) {
     };
   });
   
-  // Safety timeout: auto-release after 30 seconds to prevent permanent deadlock
+  // Safety timeout: auto-release after configured timeout to prevent permanent deadlock
   timeoutId = setTimeout(() => {
+    const metadata = lockMetadata[chatId];
+
     // Only force release if lock still exists and not already released
     if (processingLocks[chatId] && !lockReleased) {
-      console.warn(`[acquireProcessingLock] Lock timeout for chatId: ${chatId}, forcing release`);
+      const heldForMs = metadata?.acquiredAt ? Date.now() - metadata.acquiredAt : null;
+      const waitTimeMs = metadata?.waitTimeMs ?? null;
+      const queueDepthOnAcquire = metadata?.queueDepthOnAcquire ?? null;
+      const currentQueueDepth = lockQueues[chatId]?.length || 0;
+      const contextInfo = metadata?.context ? JSON.stringify(metadata.context) : "{}";
+      console.warn(
+        `[acquireProcessingLock] Lock timeout for chatId: ${chatId}, forcing release | timeoutMs=${processingLockTimeoutMs} heldForMs=${heldForMs} waitTimeMs=${waitTimeMs} queueDepthOnAcquire=${queueDepthOnAcquire} currentQueueDepth=${currentQueueDepth} context=${contextInfo}`
+      );
       releaseLock();
     }
-  }, 30000);
+  }, processingLockTimeoutMs);
   
   return releaseLock;
 }
@@ -97,6 +131,15 @@ export async function acquireProcessingLock(chatId) {
  */
 export function isProcessing(chatId) {
   return !!processingLocks[chatId];
+}
+
+/**
+ * Read current lock timeout used by acquireProcessingLock.
+ * Exposed for diagnostics/tests.
+ * @returns {number}
+ */
+export function readProcessingLockTimeoutMs() {
+  return getProcessingLockTimeoutMs();
 }
 
 // =======================

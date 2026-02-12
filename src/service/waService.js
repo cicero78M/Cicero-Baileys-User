@@ -2598,7 +2598,10 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       }
       
       // Acquire lock to prevent concurrent processing for the same chatId
-      const releaseLock = await acquireProcessingLock(chatId);
+      const releaseLock = await acquireProcessingLock(chatId, {
+        scope: "userMenuContext",
+        step: userMenuContext[chatId]?.step || "unknown",
+      });
       
       try {
         // Verify session still exists after acquiring lock (could have been deleted while waiting)
