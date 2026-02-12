@@ -4,6 +4,7 @@ Dokumen ini menjelaskan perubahan pada modul pengiriman WhatsApp di:
 
 - `src/service/waService.js` (`wrapSendMessage`)
 - `src/utils/waHelper.js` (`safeSendMessage`, `sendWAReport`, `sendWAFile`)
+- `src/service/waOutbox.js` (`enqueueSend`, `attachWorker`, `getOutboxMetrics`)
 
 ## Fitur yang ditambahkan
 
@@ -77,7 +78,37 @@ await safeSendMessage(waClient, chatId, text, {
 });
 ```
 
+### Wrapper `sendUserMessage` untuk immediate vs queue
+
+Gunakan wrapper di `src/service/waService.js`:
+
+```js
+await sendUserMessage(chatId, text, {
+  priority: 'high' | 'low',
+  immediate: true | false,
+  retryPolicy: {
+    attempts: 5,
+    backoffDelayMs: 2000,
+  },
+});
+```
+
+Aturan:
+
+- `immediate=true` (default) => kirim langsung untuk prompt inti step-by-step.
+- `immediate=false` => enqueue ke outbox (BullMQ), diproses worker dengan prioritas + retry exponential backoff.
+
+Contoh untuk reminder/notifikasi sekunder:
+
+```js
+await sendUserMessage(chatId, reminderText, {
+  priority: 'low',
+  immediate: false,
+});
+```
+
 ## Catatan operasional
 
 - Jika traffic meningkat, sesuaikan nilai env limiter secara bertahap.
 - Monitor frekuensi `wa_outbound_throttled` dan `wa_outbound_deferred` untuk tuning kapasitas.
+- Monitor metrik outbox (`queueDepth` dan `sendLatencyMs`) melalui endpoint health `GET /wa-health`.

@@ -42,6 +42,7 @@ import {
   enqueueContactSync,
   initializeContactSyncWorker,
 } from "./contactSyncQueue.js";
+import { enqueueSend, attachWorker } from "./waOutbox.js";
 
 import {
   absensiLikes,
@@ -187,8 +188,35 @@ function writeRateLimitedWaWarn(rateKey, payload) {
 const messageQueues = new WeakMap();
 const sendFailureMetrics = new Map();
 const clientMessageHandlers = new Map();
+let waOutboxWorker = null;
 
 initializeContactSyncWorker();
+
+function normalizeMessagePriority(priorityInput) {
+  return String(priorityInput || "high").toLowerCase() === "low" ? "low" : "high";
+}
+
+export async function sendUserMessage(
+  chatId,
+  text,
+  { priority = "high", immediate = true, retryPolicy = {} } = {}
+) {
+  const normalizedPriority = normalizeMessagePriority(priority);
+
+  if (immediate) {
+    return waClient.sendMessage(chatId, text, { priority: normalizedPriority });
+  }
+
+  return enqueueSend(
+    chatId,
+    { text },
+    {
+      priority: normalizedPriority,
+      attempts: Number(retryPolicy.attempts || 5),
+      backoffDelayMs: Number(retryPolicy.backoffDelayMs || 2000),
+    }
+  );
+}
 
 const shouldInitWhatsAppClients = process.env.WA_SERVICE_SKIP_INIT !== "true";
 const missingChromeRemediationHint =
@@ -3674,10 +3702,10 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         if (updated.client_operator && updated.client_operator.length >= 8) {
           const operatorId = formatToWhatsAppId(updated.client_operator);
           if (operatorId !== senderId) {
-            await waClient.sendMessage(
-              operatorId,
-              `[Notifikasi]: Client group *${client_id}* diupdate ke group ID: ${groupId}`
-            );
+            await sendUserMessage(operatorId, `[Notifikasi]: Client group *${client_id}* diupdate ke group ID: ${groupId}`, {
+              priority: "low",
+              immediate: false,
+            });
           }
         }
 
@@ -3736,7 +3764,10 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       if (newClient.client_operator && newClient.client_operator.length >= 8) {
         const operatorId = formatToWhatsAppId(newClient.client_operator);
         if (operatorId !== chatId) {
-          await waClient.sendMessage(operatorId, `[Notifikasi]:\n${dataText}`);
+          await sendUserMessage(operatorId, `[Notifikasi]:\n${dataText}`, {
+            priority: "low",
+            immediate: false,
+          });
         }
       }
 
@@ -3789,10 +3820,10 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
           if (updated.client_operator && updated.client_operator.length >= 8) {
             const operatorId = formatToWhatsAppId(updated.client_operator);
             if (operatorId !== chatId) {
-              await waClient.sendMessage(
-                operatorId,
-                `[Notifikasi]:\n${dataText}`
-              );
+              await sendUserMessage(operatorId, `[Notifikasi]:\n${dataText}`, {
+                priority: "low",
+                immediate: false,
+              });
             }
           }
 
@@ -3842,10 +3873,10 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
           if (updated.client_operator && updated.client_operator.length >= 8) {
             const operatorId = formatToWhatsAppId(updated.client_operator);
             if (operatorId !== chatId) {
-              await waClient.sendMessage(
-                operatorId,
-                `[Notifikasi]:\n${dataText}`
-              );
+              await sendUserMessage(operatorId, `[Notifikasi]:\n${dataText}`, {
+                priority: "low",
+                immediate: false,
+              });
             }
           }
 
@@ -4302,7 +4333,11 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
           !hasSessionNow
         ) {
           try {
-            await waClient.sendMessage(chatId, reminder.message);
+            await sendUserMessage(chatId, reminder.message, {
+              priority: "low",
+              immediate: false,
+              retryPolicy: { attempts: 5, backoffDelayMs: 2000 },
+            });
           } catch (err) {
             console.warn(
               `${clientLabel} failed to send mutual reminder to ${chatId}: ${err?.message || err}`
@@ -4324,6 +4359,12 @@ const handleUserMessage = createHandleMessage(waUserClient, {
 registerClientMessageHandler(waUserClient, "wwebjs-user", handleUserMessage);
 
 if (shouldInitWhatsAppClients) {
+  if (!waOutboxWorker) {
+    waOutboxWorker = attachWorker({
+      sendText: (jid, payloadText) => waUserClient.sendMessage(jid, payloadText, { priority: "low" }),
+    });
+  }
+
   startReadinessDiagnosticsLogger();
   writeWaStructuredLog("info", buildWaStructuredLog({ label: "WA", event: "wa_message_listener_attach_start" }));
   
