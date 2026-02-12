@@ -2605,6 +2605,11 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         if (handler) {
           await handler(session, chatId, text, waClient, pool, userModel);
           
+          // Verify session still exists before accessing properties
+          if (!userMenuContext[chatId]) {
+            return;
+          }
+          
           // Set timeout AFTER handler completes to avoid race conditions
           if (session.exit) {
             clearTimeout(session.timeout);

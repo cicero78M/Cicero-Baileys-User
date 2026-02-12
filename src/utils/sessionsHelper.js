@@ -58,23 +58,25 @@ export async function acquireProcessingLock(chatId) {
     releaseLock = () => {
       clearTimeout(timeoutId);
       delete processingLocks[chatId];
+      resolve();
       
-      // Process next in queue
+      // Process next in queue after resolving current lock
       const nextInQueue = lockQueues[chatId]?.shift();
       if (nextInQueue) {
         nextInQueue();
       } else {
         delete lockQueues[chatId];
       }
-      
-      resolve();
     };
   });
   
   // Safety timeout: auto-release after 30 seconds to prevent permanent deadlock
   timeoutId = setTimeout(() => {
-    console.warn(`[acquireProcessingLock] Lock timeout for chatId: ${chatId}, forcing release`);
-    releaseLock();
+    // Only force release if lock still exists
+    if (processingLocks[chatId]) {
+      console.warn(`[acquireProcessingLock] Lock timeout for chatId: ${chatId}, forcing release`);
+      releaseLock();
+    }
   }, 30000);
   
   return releaseLock;
