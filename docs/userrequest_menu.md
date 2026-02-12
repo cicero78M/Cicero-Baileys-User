@@ -89,7 +89,7 @@ Display formatting utilities:
    ↓
 2. System prompts for NRP/NIP
    ↓
-3. User enters NRP/NIP (e.g., "87020990")
+3. User enters NRP/NIP (e.g., "87020990", fullwidth, atau Arabic-Indic digit)
    ↓
 4. System validates (6-18 digits)
    ↓
@@ -106,7 +106,7 @@ Display formatting utilities:
 
 | Field | Min Length | Max Length | Format | Additional Validation |
 |-------|-----------|-----------|--------|---------------------|
-| NRP/NIP | 6 digits | 18 digits | Numbers only | Must exist in database |
+| NRP/NIP | 6 digits | 18 digits | Numbers only (Unicode digit variants are normalized) | Must exist in database |
 | Nama | 2 chars | 100 chars | Uppercase (auto-converted) | - |
 | Pangkat | - | - | From predefined list | Case-insensitive match |
 | Satfung | - | - | From predefined list | Case-insensitive match |
@@ -116,6 +116,8 @@ Display formatting utilities:
 | Desa Binaan | 2 chars | 100 chars | Uppercase (auto-converted) | Only for Ditbinmas users |
 
 **Note**: Text fields (Nama, Jabatan, Desa) are automatically converted to uppercase to match database conventions. If future fields require different casing, the `validateTextField()` function should be extended with a casing parameter.
+
+**Note**: NRP/NIP validation first normalizes common Unicode digit formats (e.g., fullwidth and Arabic-Indic) into ASCII digits, then removes non-digit characters before length checks.
 
 ## Error Handling
 

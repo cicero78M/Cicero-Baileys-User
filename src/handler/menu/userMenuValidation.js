@@ -24,7 +24,8 @@ export const RESERVED_USERNAMES = ['cicero_devs', 'admin', 'superadmin'];
  * @returns {{valid: boolean, digits: string, error: string}}
  */
 export function validateNRP(input) {
-  const digits = input.replace(/\D/g, '');
+  const normalizedDigits = normalizeUnicodeDigits(input);
+  const digits = normalizedDigits.replace(/\D/g, '');
   
   if (!digits) {
     return {
@@ -54,6 +55,30 @@ export function validateNRP(input) {
   }
   
   return { valid: true, digits, error: '' };
+}
+
+/**
+ * Normalize common Unicode digit variants into ASCII digits.
+ * Supports Arabic-Indic, Extended Arabic-Indic, and Fullwidth digits.
+ * @param {string} value
+ * @returns {string}
+ */
+function normalizeUnicodeDigits(value) {
+  const normalized = value.normalize('NFKC');
+
+  return Array.from(normalized, (char) => {
+    const codePoint = char.codePointAt(0);
+
+    if (codePoint >= 0x0660 && codePoint <= 0x0669) {
+      return String(codePoint - 0x0660);
+    }
+
+    if (codePoint >= 0x06f0 && codePoint <= 0x06f9) {
+      return String(codePoint - 0x06f0);
+    }
+
+    return char;
+  }).join('');
 }
 
 /**
