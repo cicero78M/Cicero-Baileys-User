@@ -145,7 +145,7 @@ describe("userMenuHandlers conversational flow", () => {
   it("keeps session active after inputUserId receives unknown NRP", async () => {
     const session = { step: "inputUserId" };
     const userModel = {
-      findUserById: jest.fn().mockResolvedValue(null),
+      findUserRegistrationProfileById: jest.fn().mockResolvedValue(null),
     };
 
     await userMenuHandlers.inputUserId(
@@ -172,7 +172,7 @@ describe("userMenuHandlers conversational flow", () => {
   it("accepts 18-digit NRP/NIP input when binding account", async () => {
     const session = { step: "inputUserId" };
     const userModel = {
-      findUserById: jest.fn().mockResolvedValue({
+      findUserRegistrationProfileById: jest.fn().mockResolvedValue({
         user_id: "123456789012345678",
         nama: "Bripka Seno",
       }),
@@ -198,7 +198,7 @@ describe("userMenuHandlers conversational flow", () => {
   it("rejects NRP/NIP input outside length range", async () => {
     const session = { step: "inputUserId" };
     const userModel = {
-      findUserById: jest.fn(),
+      findUserRegistrationProfileById: jest.fn(),
     };
 
     await userMenuHandlers.inputUserId(
