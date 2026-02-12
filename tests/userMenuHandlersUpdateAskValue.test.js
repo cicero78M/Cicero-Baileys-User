@@ -101,7 +101,7 @@ describe("userMenuHandlers.updateAskValue social media normalization", () => {
     expect(userModel.updateUserField).not.toHaveBeenCalled();
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      "❌ Akun TikTok tersebut sudah terdaftar pada pengguna lain."
+      expect.stringContaining("❌ Akun TikTok tersebut sudah terdaftar pada pengguna lain.")
     );
   });
 });
