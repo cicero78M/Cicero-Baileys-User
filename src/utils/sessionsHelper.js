@@ -29,26 +29,53 @@ const clientRequestSessions = {};          // { chatId: {step, data, ...} }
 // =======================
 
 const processingLocks = {};  // { chatId: Promise }
+const lockQueues = {};       // { chatId: Array<Function> }
 
 /**
  * Acquire a processing lock for a chatId to prevent concurrent message handling
+ * Uses a queue-based approach to prevent race conditions
  * @param {string} chatId
  * @returns {Promise<Function>} Release function to call when done
  */
 export async function acquireProcessingLock(chatId) {
-  // Wait for any existing lock to be released
-  while (processingLocks[chatId]) {
-    await processingLocks[chatId];
+  // Create queue if it doesn't exist
+  if (!lockQueues[chatId]) {
+    lockQueues[chatId] = [];
   }
   
-  // Create a new lock
+  // If there's an active lock, queue this request
+  if (processingLocks[chatId]) {
+    await new Promise(resolve => {
+      lockQueues[chatId].push(resolve);
+    });
+  }
+  
+  // Create a new lock with timeout safety
   let releaseLock;
+  let timeoutId;
+  
   processingLocks[chatId] = new Promise(resolve => {
     releaseLock = () => {
+      clearTimeout(timeoutId);
       delete processingLocks[chatId];
+      
+      // Process next in queue
+      const nextInQueue = lockQueues[chatId]?.shift();
+      if (nextInQueue) {
+        nextInQueue();
+      } else {
+        delete lockQueues[chatId];
+      }
+      
       resolve();
     };
   });
+  
+  // Safety timeout: auto-release after 30 seconds to prevent permanent deadlock
+  timeoutId = setTimeout(() => {
+    console.warn(`[acquireProcessingLock] Lock timeout for chatId: ${chatId}, forcing release`);
+    releaseLock();
+  }, 30000);
   
   return releaseLock;
 }

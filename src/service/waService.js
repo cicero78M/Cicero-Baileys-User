@@ -2605,7 +2605,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         if (handler) {
           await handler(session, chatId, text, waClient, pool, userModel);
           
-          // Reset timeout AFTER handler completes to avoid race conditions
+          // Set timeout AFTER handler completes to avoid race conditions
           if (session.exit) {
             clearTimeout(session.timeout);
             clearTimeout(session.warningTimeout);
