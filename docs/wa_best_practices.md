@@ -2,45 +2,45 @@
 
 ## Overview
 
-This guide documents best practices for WhatsApp bot message reception and processing in the Cicero V2 system, based on deep investigation of the wwebjs workflow mechanism.
+This guide documents best practices for WhatsApp bot message reception and processing in Cicero V2, aligned with the current Baileys runtime and single-client architecture.
 
 ## Architecture Overview
 
 ### Message Flow
 
 ```
-WhatsApp Web.js Client
+Baileys Client (`waUserClient`)
     ↓
-Internal Message Handler (wwebjsAdapter.js)
+Adapter Layer (`baileysAdapter.js`)
     ↓
-Event Emitter ('message' event)
+Event Emitter (`message` event)
     ↓
-External Listeners (waService.js)
+External Listener (`waService.js`)
     ↓
-Message Deduplication (waEventAggregator.js)
+Message Deduplication (`waEventAggregator.js`)
     ↓
-Handler Functions (handleMessage, handleUserMessage, handleGatewayMessage)
+Handler Functions
     ↓
 Business Logic Processing
 ```
 
 ### Key Components
 
-1. **wwebjsAdapter.js**: WhatsApp Web.js client wrapper
+1. **baileysAdapter.js**: Baileys client wrapper
    - Manages client lifecycle (connect, ready, disconnect)
    - Registers internal event handlers
    - Emits events to external listeners
    - Handles reinitialization without losing external listeners
 
 2. **waService.js**: Main WhatsApp service
-   - Creates and manages three clients (waClient, waUserClient, waGatewayClient)
+   - Creates one runtime client (`waUserClient`) and exposes `waClient` as alias kompatibilitas
    - Attaches external message listeners
    - Routes messages to appropriate handlers
    - Manages readiness state and deferred messages
 
 3. **waEventAggregator.js**: Message deduplication
    - Prevents duplicate message processing
-   - Handles multiple adapter sources (wwebjs, baileys)
+   - Handles normalized message source from adapter/service boundary
    - TTL-based cache to prevent memory leaks
    - Automatic cleanup of expired entries
 
@@ -393,57 +393,27 @@ setInterval(cleanup, INTERVAL); // Process won't exit!
 
 ```bash
 # === Core Configuration ===
-
-# Skip WhatsApp initialization (testing only, NEVER in production)
 WA_SERVICE_SKIP_INIT=false
-
-# Enable verbose debug logging (disable in production)
 WA_DEBUG_LOGGING=false
-
-# Message deduplication TTL (default: 24 hours)
 WA_MESSAGE_DEDUP_TTL_MS=86400000
 
-# === Client Configuration ===
-
-# User request client ID
+# === Current Runtime Truth ===
+# Satu client aktif: waUserClient (alias: waClient)
 USER_WA_CLIENT_ID=wa-userrequest-prod
 
-# Gateway client ID
-GATEWAY_WA_CLIENT_ID=wa-gateway-prod
-
 # === Session Management ===
-
-# Custom auth data path (optional)
 WA_AUTH_DATA_PATH=
-
-# Clear session on reinitialization
 WA_AUTH_CLEAR_SESSION_ON_REINIT=false
-
-# === Browser Configuration ===
-
-# Web version cache URL
-WA_WEB_VERSION_CACHE_URL=https://raw.githubusercontent.com/wppconnect-team/wa-version/main/versions.json
-
-# Pin specific WhatsApp Web version (optional)
-WA_WEB_VERSION=
-
-# === Timeout Configuration ===
-
-# Protocol timeout for main client (default: 120 seconds)
-WA_WWEBJS_PROTOCOL_TIMEOUT_MS=120000
-
-# Protocol timeout for user client
-WA_WWEBJS_PROTOCOL_TIMEOUT_MS_USER=120000
-
-# Protocol timeout for gateway client (longer for group operations)
-WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY=180000
-
-# Maximum protocol timeout (for backoff)
-WA_WWEBJS_PROTOCOL_TIMEOUT_MAX_MS=300000
-
-# Timeout backoff multiplier
-WA_WWEBJS_PROTOCOL_TIMEOUT_BACKOFF_MULTIPLIER=1.5
 ```
+
+| Runtime Fact | Nilai |
+|---|---|
+| Jumlah client aktif | 1 |
+| Nama instance aktif | `waUserClient` |
+| Alias | `waClient` |
+| Path session | `<WA_AUTH_DATA_PATH>/session-<USER_WA_CLIENT_ID>` (default `~/.cicero/baileys_auth/...`) |
+
+**Migration note:** variabel lama `GATEWAY_WA_CLIENT_ID` / `APP_SESSION_NAME` tidak dipakai pada runtime WA saat ini dan sebaiknya dihapus dari konfigurasi aktif.
 
 ### Default Values
 
@@ -457,7 +427,7 @@ WA_WWEBJS_PROTOCOL_TIMEOUT_BACKOFF_MULTIPLIER=1.5
 
 ### Startup
 - [ ] "Attaching message event listeners" log appears
-- [ ] All clients show listener count > 0
+- [ ] Runtime client (`waUserClient` / alias `waClient`) shows listener count > 0
 - [ ] Clients reach ready state within timeout
 - [ ] No authentication failures
 
@@ -550,7 +520,6 @@ Adjust TTL based on:
 
 ### Access Control
 - Admin WhatsApp numbers: `ADMIN_WHATSAPP`
-- Gateway admin numbers: `GATEWAY_WHATSAPP_ADMIN`
 - Client operator numbers: `CLIENT_OPERATOR`
 
 ### Data Privacy
@@ -568,11 +537,11 @@ WA_DEBUG_LOGGING=true npm start
 
 Shows detailed message flow:
 ```
-[WWEBJS-ADAPTER] Raw message received
-[WWEBJS-ADAPTER] Emitting 'message' event
+[BAILEYS-ADAPTER] Raw message received
+[BAILEYS-ADAPTER] Emitting 'message' event
 [WA-SERVICE] waClient received message
 [WA-EVENT-AGGREGATOR] Message received from adapter
-[WA-EVENT-AGGREGATOR] Processing wwebjs message
+[WA-EVENT-AGGREGATOR] Processing normalized message
 ```
 
 ### 2. Health Endpoint
@@ -609,13 +578,13 @@ checkMessageListenersAttached();
 - `.env.example` - Configuration reference
 
 ### Code
-- `src/service/wwebjsAdapter.js` - Client wrapper (1799 lines)
+- `src/service/baileysAdapter.js` - Client wrapper
 - `src/service/waService.js` - Main service (5421 lines)
 - `src/service/waEventAggregator.js` - Deduplication (160 lines)
 - `src/utils/waDiagnostics.js` - Diagnostic utilities
 
 ### Tests
-- `tests/wwebjsAdapter.test.js` - Adapter tests
+- `tests/baileysAdapter.test.js` - Adapter tests (jika tersedia pada branch ini)
 - `tests/waEventAggregator.test.js` - Deduplication tests
 
 ## Support

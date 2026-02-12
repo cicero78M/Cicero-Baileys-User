@@ -13,7 +13,7 @@
 
 ## Description
 
-**Cicero_V2** is an automation backend for monitoring social media, managing editorial workflows, and orchestrating WhatsApp messaging. The service ingests Instagram and TikTok metrics for multiple clients, tracks attendance, powers daily/weekly reporting, manages premium subscriptions, and now drives the Penmas editorial approval process. Two WhatsApp sessions are maintained—one for operator interactions and another as a gateway for directorate broadcasts—while OTP distribution has moved to instant email delivery.
+**Cicero_V2** is an automation backend for monitoring social media, managing editorial workflows, and orchestrating WhatsApp messaging. The service ingests Instagram and TikTok metrics for multiple clients, tracks attendance, powers daily/weekly reporting, manages premium subscriptions, and now drives the Penmas editorial approval process. Current runtime uses one WhatsApp client instance (`waUserClient`) with backward-compatible alias `waClient`, while OTP distribution has moved to instant email delivery.
 
 The full architecture is described in [docs/enterprise_architecture.md](docs/enterprise_architecture.md). Scheduled activities are listed in [docs/activity_schedule.md](docs/activity_schedule.md). See [docs/metadata_flow.md](docs/metadata_flow.md) for the data movement from collection to reporting. Additional guides are available for [server migration](docs/server_migration.md), [database migrations](docs/running_migrations.md), [RabbitMQ](docs/rabbitmq.md), [Redis](docs/redis.md), [database structure](docs/database_structure.md), [premium subscriptions](docs/premium_subscription.md), [Nginx configuration](docs/reverse_proxy_config.md), [PostgreSQL backups](docs/pg_backup_gdrive.md), [naming conventions](docs/naming_conventions.md), [Login API guide](docs/login_api.md), [Instagram Rapid API](docs/instaRapidApi.md), [WhatsApp user registration guide](docs/wa_user_registration.md), [WhatsApp client lifecycle & troubleshooting](docs/whatsapp_client_lifecycle.md), [workflow & usage guide](docs/workflow_usage_guide.md), and [editorial workflow](docs/wa_operator_request.md).
 Accepted complaint layouts, including `Kendala` and `Rincian Kendala` headers, are documented in [docs/complaint_formats.md](docs/complaint_formats.md).
@@ -231,21 +231,11 @@ Application logs are timestamped using the Asia/Jakarta timezone by the console 
     DB_DRIVER=postgres
     REDIS_URL=redis://localhost:6379
     ADMIN_WHATSAPP=628xxxxxx,628yyyyyy
-    GATEWAY_WHATSAPP_ADMIN=628zzzzzz
-    APP_SESSION_NAME=wa-admin
     USER_WA_CLIENT_ID=wa-userrequest-prod
-    GATEWAY_WA_CLIENT_ID=wa-gateway-prod
     WA_AUTH_DATA_PATH=/var/lib/cicero/wa-sessions
     WA_AUTH_CLEAR_SESSION_ON_REINIT=false
-    WA_WEB_VERSION_CACHE_URL=https://raw.githubusercontent.com/wppconnect-team/wa-version/main/versions.json
-    WA_WEB_VERSION=
-    WA_WEB_VERSION_RECOMMENDED=
-    WA_WWEBJS_BROWSER_LOCK_BACKOFF_MS=20000
-    WA_WWEBJS_PROTOCOL_TIMEOUT_MS=120000
-    WA_WWEBJS_PROTOCOL_TIMEOUT_MS_USER=120000
-    WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY=180000
-    WA_WWEBJS_PROTOCOL_TIMEOUT_MAX_MS=300000
-    WA_WWEBJS_PROTOCOL_TIMEOUT_BACKOFF_MULTIPLIER=1.5
+    WA_DEBUG_LOGGING=false
+    WA_SERVICE_SKIP_INIT=false
     ENABLE_DIRREQUEST_GROUP=true
     CORS_ORIGIN=http://localhost:3000
     ALLOW_DUPLICATE_REQUESTS=false
@@ -276,28 +266,26 @@ Application logs are timestamped using the Asia/Jakarta timezone by the console 
     ```
    Use `DB_DRIVER=postgres`, `postgresql`, or `pg` when connecting to Postgres so the backend applies the session settings (`app.current_*`) required by database row-level security. Switching `DB_DRIVER` to another value disables these Postgres-only settings.
    `ADMIN_WHATSAPP` accepts numbers with or without the `@c.us` suffix. When the suffix is omitted, the application automatically appends it.
-   `USER_WA_CLIENT_ID` defines the session identifier used by the user-facing WhatsApp client. Change it to isolate session data if needed.
-   `USER_WA_CLIENT_ID` dan `GATEWAY_WA_CLIENT_ID` wajib unik (berbeda dari default maupun satu sama lain). Contoh benar: `USER_WA_CLIENT_ID=wa-userrequest-prod` dan `GATEWAY_WA_CLIENT_ID=wa-gateway-prod`.
-   `USER_WA_CLIENT_ID` **harus lowercase dan tidak boleh default `wa-userrequest`**. Service akan menghentikan proses sejak awal jika nilai masih default, mengandung huruf besar, atau folder `session-<clientId>` di `WA_AUTH_DATA_PATH` memakai casing berbeda.
-   `GATEWAY_WA_CLIENT_ID` **harus lowercase dan tidak boleh default `wa-gateway`**. Service akan menghentikan proses sejak awal jika nilai masih default, mengandung huruf besar, atau folder `session-<clientId>` di `WA_AUTH_DATA_PATH` memakai casing berbeda.
-   Saat mengganti `GATEWAY_WA_CLIENT_ID`, bersihkan session lama di `WA_AUTH_DATA_PATH` dengan cara rename atau hapus folder `session-<clientId>` yang lama agar tidak meninggalkan sesi usang.
-   `GATEWAY_WHATSAPP_ADMIN` identifies the WhatsApp account that receives gateway connection updates.
-   `APP_SESSION_NAME` is the session folder name used for the main WhatsApp client; override it when running multiple instances on the same host.
-   `WA_AUTH_DATA_PATH` is the session storage path for WhatsApp authentication (default: `~/.cicero/baileys_auth`). The system uses Baileys multi-file auth state, storing credentials and keys in separate files. Startup performs validation on `<WA_AUTH_DATA_PATH>/session-<clientId>`; when invalid or not writable, initialization stops with appropriate error messages plus remediation hints (fix permissions/ownership or set a valid path).
-   `WA_AUTH_CLEAR_SESSION_ON_REINIT=true` forces the adapter to remove the `session-<clientId>` folder before reinitializing after `auth_failure`/logout-related disconnects. Because lifecycle recovery is centralized in adapter, `waService` no longer performs fallback readiness polling (`getState`) or layered reconnect retries.
-   `WA_READY_TIMEOUT_MS` (default `60000`) controls how long service waits for `ready` before treating a client as not-ready in wait helpers.
-   `WA_GATEWAY_READY_TIMEOUT_MS` overrides `WA_READY_TIMEOUT_MS` only for `WA-GATEWAY`.
-   ```json
-   {
-     "version": "2.3000.1019311536",
-     "platform": "web",
-     "releaseDate": "2024-04-01"
-   }
-   ```
-   Perbarui pin (`WA_WEB_VERSION` atau `WA_WEB_VERSION_RECOMMENDED`) saat WhatsApp Web merilis update besar dan log `initialize`/`load` menunjukkan error setelah update (misalnya blank page atau error `LocalWebCache.persist`/`Cannot read properties of null`). Biasanya cukup sinkronkan ke versi terbaru dari payload cache yang sudah tervalidasi.
-   `WA_WWEBJS_PROTOCOL_TIMEOUT_MS` sets the Puppeteer protocol timeout used by whatsapp-web.js for `Runtime.callFunctionOn` and other DevTools protocol calls. Keep the default `120000` ms for typical deployments, and increase it (for example `180000`) when you expect slow or high-latency connections to WhatsApp Web.
-   Per-client override is available in two formats: a stable role alias (based on the client ID prefix) and a clientId-specific suffix. Role alias mapping uses `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY` for client IDs that start with `wa-gateway` and `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_USER` for IDs that start with `wa-user`. For example, for `wa-gateway-prod` you can set `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY=180000`, or use the explicit client suffix `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_WA_GATEWAY_PROD=180000` (client ID uppercased with non-alphanumerics replaced by underscores). Recommended production setup: keep `WA_WWEBJS_PROTOCOL_TIMEOUT_MS=120000` for WA admin, and raise the per-client override for user/gateway clients that see frequent `Runtime.callFunctionOn timed out` errors.
-   The adapter can auto-increase the protocol timeout after runtime timeouts during initialization. Control the cap with `WA_WWEBJS_PROTOCOL_TIMEOUT_MAX_MS` (default 300000) and the growth rate with `WA_WWEBJS_PROTOCOL_TIMEOUT_BACKOFF_MULTIPLIER` (default 1.5). Set the max to a value higher than your per-client timeout if you want auto-bumps to take effect.
+   `USER_WA_CLIENT_ID` defines the runtime WhatsApp client ID and **must be lowercase + non-default** (`wa-userrequest` is rejected at startup).
+   `WA_AUTH_DATA_PATH` is the auth storage root; runtime stores auth data at `<WA_AUTH_DATA_PATH>/session-<USER_WA_CLIENT_ID>`. If not set, the adapter defaults to `~/.cicero/baileys_auth`.
+   `WA_AUTH_CLEAR_SESSION_ON_REINIT=true` forces clearing the session folder before reinit.
+   `WA_SERVICE_SKIP_INIT=true` is test-only and disables message reception.
+
+### Current Runtime Truth (WhatsApp)
+
+| Item | Nilai runtime saat ini |
+|---|---|
+| Jumlah client aktif | **1 instance** (`waUserClient`) |
+| Alias kompatibilitas | `waClient` → referensi ke instance yang sama dengan `waUserClient` |
+| Env wajib WA | `USER_WA_CLIENT_ID` (wajib, lowercase, non-default) |
+| Env WA opsional umum | `WA_AUTH_DATA_PATH`, `WA_AUTH_CLEAR_SESSION_ON_REINIT`, `WA_DEBUG_LOGGING`, `WA_SERVICE_SKIP_INIT` |
+| Path session yang dipakai | `<WA_AUTH_DATA_PATH>/session-<USER_WA_CLIENT_ID>` atau default `~/.cicero/baileys_auth/session-<USER_WA_CLIENT_ID>` |
+
+### Migration Note: dari arsitektur lama multi-client
+
+- Runtime lama menyinggung `waGatewayClient`/`GATEWAY_WA_CLIENT_ID`/`APP_SESSION_NAME`.
+- Runtime saat ini **tidak** membuat client gateway terpisah; seluruh alur memakai satu instance Baileys (`waUserClient`), dan kode lama yang import `waClient` tetap jalan karena alias.
+- Saat migrasi env lama, hapus variabel gateway yang tidak dipakai runtime (`GATEWAY_WA_CLIENT_ID`, `GATEWAY_WHATSAPP_ADMIN`, `APP_SESSION_NAME`) agar konfigurasi tidak membingungkan.
    `ENABLE_DIRREQUEST_GROUP=false` disables all Ditbinmas dirRequest cron jobs at once while leaving other schedules intact.
    `GOOGLE_SERVICE_ACCOUNT` may be set to a JSON string or a path to a JSON file. If the value starts with `/` or ends with `.json`, the application reads the file; otherwise it parses the variable directly as JSON. `GOOGLE_IMPERSONATE_EMAIL` should be set to the Workspace user to impersonate when performing contact operations.
    `SMTP_*` variables enable OTP and complaint notifications through email (`claimRoutes.js`). Leave them unset to disable email delivery in development.
@@ -373,12 +361,11 @@ A cron job (`src/cron/cronDbBackup.js`) runs daily at **04:00** (Asia/Jakarta), 
 
 ## WhatsApp Sessions & Cron Buckets
 
-WhatsApp sessions are launched from `app.js`: `waClient` for operator interactions, `waUserClient` for user-request flows, and `waGatewayClient` for broadcast/reporting flows. Cron buckets remain paused until each session signals readiness, preventing duplicate schedules after restarts. Manifest entries in `src/cron/cronManifest.js` drive the always/`waClient` buckets, while all Ditbinmas dirRequest jobs are bundled in `src/cron/dirRequest/index.js` and registered via `registerDirRequestCrons(waGatewayClient)` so they share the same gateway context and can be toggled with `ENABLE_DIRREQUEST_GROUP`.
+WhatsApp runtime now starts one client instance from `waService.js`: `waUserClient`, exported with alias `waClient` for backward compatibility. Cron buckets that require WA now reference this single readiness source, preventing duplicate schedules after restarts.
 
-- The three WhatsApp sessions initialize in parallel, so QR/ready delays or failures in one session will not block the other sessions from connecting. Each client keeps its own `[WA]`, `[WA-USER]`, or `[WA-GATEWAY]` startup/error logs for easier traceability.
-- WhatsApp readiness is tracked per client. Message handlers await the specific client's `waitForWaReady()` before processing, and the service logs `READY` for WA/WA-USER/WA-GATEWAY when lifecycle events confirm a connected session.
+- Only one WhatsApp session is initialized (`waUserClient`, alias `waClient`). Startup, QR, and readiness logs therefore converge on one client ID/session path.
 - Outbound message sending is serialized per client (`PQueue` concurrency 1), waits for readiness, and executes a single send attempt only (no automatic retry/backoff/jitter). Failures are re-thrown with `sendFailureMetadata` (`jid`, `clientLabel`, `messageType`) and logged as structured `wa_send_message_failed` events with per-client failure counters for NOC follow-up.
-- Fallback readiness checks run after initialization for **all** WhatsApp clients. After ~60 seconds the service calls `getState()` and logs messages such as `[WA-USER] getState: CONNECTED` or `[WA-GATEWAY] getState error: ...`. If `isReady()`/`getState()` reports `CONNECTED/open`, the fallback is marked complete (one-shot per start/restart) and will not reschedule until the next reset triggered by `qr`, `authenticated`, `auth_failure`, disconnect/change_state, or a new `connect()`/`reinitialize()` call.
+- Readiness checks now fokus ke satu runtime client (`waUserClient`/`waClient`) dan dipakai sebagai guard sebelum eksekusi alur yang memerlukan koneksi WA.
 - Reconnects are guarded by a shared connect lock: if a client is already initializing, further `connect()` calls (including hard-init retries or disconnect-driven reconnects) will wait for or skip the in-flight promise instead of launching a parallel session. This keeps the default retry timing the same (e.g., 5s reconnect delay, exponential hard-init retry delays) while preventing overlapping initializations.
 
 - `src/cron/cronDirRequestFetchSosmed.js` now runs as a standalone cron in the `always` manifest bucket and fires every 30 minutes from **06:00–22:00** (Asia/Jakarta), so it does not wait for any WhatsApp gateway/user readiness before refreshing Ditbinmas Instagram/TikTok data and broadcasting deltas when available.
@@ -396,7 +383,7 @@ The OTP worker (`src/service/otpQueue.js`) now resolves immediately because OTP 
 ## Troubleshooting
 
 - **DB connection errors** – check database credentials and PostgreSQL status.
-- **WhatsApp not connected** – rescan the QR code, confirm session folders (`APP_SESSION_NAME`, `USER_WA_CLIENT_ID`, `GATEWAY_WA_CLIENT_ID`), and check logs for connection errors. If authentication fails repeatedly, delete the session folder and re-authenticate by scanning a new QR code. The system now uses Baileys which doesn't require a browser, making connection more stable and faster.
+- **WhatsApp not connected** – rescan the QR code, confirm `USER_WA_CLIENT_ID` and folder `session-<USER_WA_CLIENT_ID>` pada `WA_AUTH_DATA_PATH`, lalu cek log error koneksi. Jika auth gagal berulang, hapus folder session tersebut lalu scan QR ulang.
 - **Connection issues** – Baileys uses WebSocket connections to WhatsApp servers. Check network connectivity and ensure no firewalls are blocking WebSocket traffic. If connections are unstable, verify the session credentials are valid and not corrupted. For authentication issues, delete the session folder and re-scan the QR code.
 - **Email OTP delivery failed** – verify `SMTP_*` variables and network egress.
 - **External API errors** – verify `RAPIDAPI_KEY` and check application logs.
