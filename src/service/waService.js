@@ -220,11 +220,55 @@ const OUTBOUND_GLOBAL_MAX_MESSAGES = Number(
 );
 const OUTBOUND_JITTER_MIN_MS = Number(process.env.WA_OUTBOUND_JITTER_MIN_MS || 1500);
 const OUTBOUND_JITTER_MAX_MS = Number(process.env.WA_OUTBOUND_JITTER_MAX_MS || 4500);
+const SEEN_THROTTLE_MIN_INTERVAL_MS = Number(
+  process.env.WA_SEEN_THROTTLE_MIN_INTERVAL_MS || 1000
+);
 
 const sleep = (ms) =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+
+const seenThrottleStateByClient = new WeakMap();
+
+function shouldDispatchSeen(waClient, chatId) {
+  if (!waClient || !chatId) {
+    return false;
+  }
+  if (SEEN_THROTTLE_MIN_INTERVAL_MS <= 0) {
+    return true;
+  }
+
+  let seenThrottleState = seenThrottleStateByClient.get(waClient);
+  if (!seenThrottleState) {
+    seenThrottleState = new Map();
+    seenThrottleStateByClient.set(waClient, seenThrottleState);
+  }
+
+  const now = Date.now();
+  const lastSentAt = seenThrottleState.get(chatId) || 0;
+  if (now - lastSentAt < SEEN_THROTTLE_MIN_INTERVAL_MS) {
+    return false;
+  }
+
+  seenThrottleState.set(chatId, now);
+  return true;
+}
+
+function dispatchSeenReceipt(waClient, chatId, clientLabel = "[WA]") {
+  if (typeof waClient?.sendSeen !== "function") {
+    return;
+  }
+  if (!shouldDispatchSeen(waClient, chatId)) {
+    return;
+  }
+
+  waClient.sendSeen(chatId).catch((err) => {
+    console.warn(
+      `${clientLabel} Failed to mark ${chatId} as read: ${err?.message || err}`
+    );
+  });
+}
 
 function randomBetween(min, max) {
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
@@ -1693,14 +1737,7 @@ export function createHandleMessage(waClient, options = {}) {
     }
 
     if (markSeen && typeof waClient.sendSeen === "function") {
-      await sleep(1000);
-      try {
-        await waClient.sendSeen(chatId);
-      } catch (err) {
-        console.warn(
-          `${clientLabel} Failed to mark ${chatId} as read: ${err?.message || err}`
-        );
-      }
+      dispatchSeenReceipt(waClient, chatId, clientLabel);
     }
 
     // ===== Deklarasi State dan Konstanta =====
