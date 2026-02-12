@@ -2600,6 +2600,11 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       const releaseLock = await acquireProcessingLock(chatId);
       
       try {
+        // Verify session still exists after acquiring lock (could have been deleted while waiting)
+        if (!userMenuContext[chatId]) {
+          return;
+        }
+        
         const session = userMenuContext[chatId];
         const handler = userMenuHandlers[session.step];
         if (handler) {

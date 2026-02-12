@@ -357,7 +357,7 @@ export const userMenuHandlers = {
       return;
     }
     if (!new RegExp(`^[1-${maxOption}]$`).test(lower)) {
-      // Only send error message, don't resend the menu
+      // Only send error message, do not resend the menu
       await waClient.sendMessage(
         chatId,
         "❌ Pilihan tidak valid. Balas dengan angka sesuai daftar (contoh: 1) atau ketik *batal* untuk keluar."
