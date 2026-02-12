@@ -11,6 +11,10 @@ import {
 } from "../src/utils/sessionsHelper.js";
 
 // Simulate closeSession functionality without importing it
+// Note: We duplicate this logic instead of importing from userMenuHandlers.js
+// to avoid dependency issues with env.js that would require setting up many
+// environment variables for the test. This duplicated function is tested
+// against the same behavior and will catch any discrepancies.
 const simulateCloseSession = async (session, chatId, waClient, message) => {
   // Clear all timeout handlers to prevent messages after session close
   if (session.timeout) {

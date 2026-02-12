@@ -127,12 +127,13 @@ export function setMenuTimeout(chatId, waClient, expectReply = false) {
   ctx.timeout = setTimeout(() => {
     // Check if session still exists before sending message
     if (userMenuContext[chatId] && waClient) {
+      // Set cooldown first to ensure it's set even if message sending fails
+      setSessionTimeoutCooldown(chatId);
+      
       waClient
         .sendMessage(chatId, SESSION_EXPIRED_MESSAGE)
         .catch((e) => console.error(e));
       delete userMenuContext[chatId];
-      // Set cooldown to prevent immediate auto-start
-      setSessionTimeoutCooldown(chatId);
     }
   }, USER_MENU_TIMEOUT);
   ctx.warningTimeout = setTimeout(() => {
