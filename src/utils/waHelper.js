@@ -229,6 +229,28 @@ export function formatToWhatsAppId(nohp) {
   return `${normalized}@c.us`;
 }
 
+// Konversi nomor ke Baileys JID format (xxxx@s.whatsapp.net)
+// Untuk kompatibilitas dengan Baileys yang menggunakan @s.whatsapp.net
+export function formatToBaileysJid(nohp) {
+  const number = extractPhoneDigits(nohp);
+  if (!number) return '';
+  const normalized = number.startsWith('62')
+    ? number
+    : '62' + number.replace(/^0/, '');
+  return `${normalized}@s.whatsapp.net`;
+}
+
+// Normalisasi nomor WhatsApp ke format standar (plain digits atau dengan JID)
+// Mendukung input: "08123456789", "628123456789", "628123456789@c.us", "628123456789@s.whatsapp.net"
+// Output default: plain digits "628123456789"
+export function normalizeToPlainNumber(nohp) {
+  const number = extractPhoneDigits(nohp);
+  if (!number) return '';
+  return number.startsWith('62')
+    ? number
+    : '62' + number.replace(/^0/, '');
+}
+
 function normalizeChatId(chatId) {
   const normalized = typeof chatId === 'string' ? chatId.trim() : '';
   if (!normalized) return '';
