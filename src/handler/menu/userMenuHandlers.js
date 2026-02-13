@@ -214,7 +214,7 @@ export const userMenuHandlers = {
               `❌ NRP/NIP *${digits}* sudah terhubung dengan nomor WhatsApp lain.`,
               '',
               'Satu akun hanya dapat diakses dari satu nomor WhatsApp yang terdaftar.',
-              'Jika Anda adalah pemilik akun dan nomor telah berubah, hubungi Opr CICERO Polres Anda.',
+              'Silahkan update menggunakan https://papiqo.com/claim',
               '',
               'Silakan masukkan NRP/NIP lain atau ketik *batal* untuk keluar.',
             ].join('\n')
