@@ -188,6 +188,26 @@ export WA_PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
 WA_MESSAGE_DEDUP_TTL_MS=3600000  # 1 hour instead of 24
 ```
 
+### Issue 4b: Repeated Delivery + Stale Input pada Update Data
+
+**Symptom**:
+- Pengguna mengirim beberapa input beruntun untuk update field (contoh: username sosmed).
+- Input awal ditolak (duplicate), lalu input berikutnya valid.
+- Ada komplain bahwa nilai sukses tidak sama dengan input terakhir pengguna.
+
+**Cara membaca log/audit session**:
+1. Cek proses validasi duplicate di log handler update field untuk melihat input mana yang ditolak.
+2. Cek payload commit terakhir pada session:
+   - `session.lastProcessedInput.field`
+   - `session.lastProcessedInput.value`
+   - `session.lastProcessedInput.rawInput`
+   - `session.lastProcessedAt`
+3. Pastikan pesan sukses menampilkan `lastProcessedInput.value` (nilai post-validation), bukan nilai cache lama.
+
+**Interpretasi cepat**:
+- Jika ada repeated delivery dari WhatsApp, nilai audit harus tetap menunjukkan payload yang benar-benar lolos validasi terakhir.
+- Bila `lastProcessedAt` berubah tetapi value tidak sesuai pesan sukses, kemungkinan ada bug formatting/ordering yang perlu ditelusuri.
+
 ### Issue 5: Phone Offline or Not Connected
 
 **Symptom**: "[WWEBJS] Client ... fully initialized" appears, but no message logs when sending test messages

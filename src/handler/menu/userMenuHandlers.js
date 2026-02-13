@@ -500,7 +500,8 @@ export const userMenuHandlers = {
     }
     const user_id = session.updateUserId;
     let field = session.updateField;
-    let value = text.trim();
+    const rawInput = text.trim();
+    let value = rawInput;
 
     // Normalisasi field DB
     const dbField = field === "pangkat" ? "title" : field === "satfung" ? "divisi" : field;
@@ -545,7 +546,7 @@ export const userMenuHandlers = {
         if (existing && existing.user_id !== user_id) {
           await waClient.sendMessage(
             chatId,
-            "❌ Akun Instagram tersebut sudah terdaftar pada pengguna lain. Silakan gunakan akun lain atau ketik *batal* untuk membatalkan."
+            `❌ Instagram *@${value}* sudah terdaftar pada pengguna lain. Silakan gunakan akun lain atau ketik *batal* untuk membatalkan.`
           );
           return;
         }
@@ -562,7 +563,7 @@ export const userMenuHandlers = {
         if (existing && existing.user_id !== user_id) {
           await waClient.sendMessage(
             chatId,
-            "❌ Akun TikTok tersebut sudah terdaftar pada pengguna lain. Silakan gunakan akun lain atau ketik *batal* untuk membatalkan."
+            `❌ TikTok *@${value}* sudah terdaftar pada pengguna lain. Silakan gunakan akun lain atau ketik *batal* untuk membatalkan.`
           );
           return;
         }
@@ -576,6 +577,14 @@ export const userMenuHandlers = {
         }
         value = validation.value;
       }
+
+      // Simpan payload commit terakhir (post-validation) untuk audit/debug mismatch input.
+      session.lastProcessedInput = {
+        field: dbField,
+        value,
+        rawInput,
+      };
+      session.lastProcessedAt = new Date().toISOString();
 
       // Update database with proper error handling
       await userModel.updateUserField(user_id, dbField, value);
@@ -591,7 +600,10 @@ export const userMenuHandlers = {
       }
       
       // Format display value
-      const displayValue = (dbField === "insta" || dbField === "tiktok") ? `@${value}` : value;
+      const committedValue = session.lastProcessedInput?.value ?? value;
+      const displayValue = (dbField === "insta" || dbField === "tiktok")
+        ? `@${committedValue}`
+        : committedValue;
       const fieldDisplayName = getFieldDisplayName(dbField);
       
       const successMsg = formatUpdateSuccess(fieldDisplayName, displayValue, user_id);
