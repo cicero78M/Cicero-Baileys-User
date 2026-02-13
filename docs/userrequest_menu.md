@@ -19,6 +19,7 @@ src/
 │   └── menu/
 │       ├── userMenuHandlers.js        # Main menu handlers and flow logic
 │       ├── userMenuValidation.js      # Input validation functions
+│       ├── userMenuIntentParser.js    # Intent parser + debounce invalid reply
 │       └── userMenuHelpers.js         # Display formatting helpers
 ├── service/
 │   └── waService.js                   # Entry point, detects "userrequest" command
@@ -47,7 +48,14 @@ Centralized validation logic:
 - `validateTikTok()` - Validates TikTok username/URL
 - `validateListSelection()` - Validates selection from numbered list
 
-#### 3. userMenuHelpers.js
+#### 3. userMenuIntentParser.js
+Intent parser khusus menu interaktif user:
+- `parseAffirmativeNegativeIntent()` - Mapping sinonim jawaban (ya/iya/y/ok/oke, tidak/ga/gak/n)
+- `parseNumericOptionIntent()` - Parsing pilihan numerik valid (`1..n`)
+- `isDebouncedRepeatedInput()` - Debounce input invalid berulang pada step yang sama (default 2.5 detik)
+- `getIntentParserHint()` - Format pesan invalid yang menampilkan menu aktif + contoh jawaban
+
+#### 4. userMenuHelpers.js
 Display formatting utilities:
 - `formatUserReport()` - Formats user data for display
 - `getFieldInfo()` - Gets field display name and current value
@@ -57,6 +65,15 @@ Display formatting utilities:
 - `formatOptionsList()` - Formats numbered options list
 
 ## User Flow
+
+### Input Intent & Debounce Behavior
+
+- Step `tanyaUpdateMyData`, `confirmBindUser`, dan `confirmBindUpdate` menggunakan parser intent agar sinonim jawaban tetap diterima.
+- Step `updateAskField` menggunakan parser pilihan numerik (`1..n`) agar validasi tidak tergantung regex mentah.
+- Saat input tidak cocok dengan step aktif, sistem merespons dengan:
+  - informasi **menu aktif saat ini**, dan
+  - contoh format jawaban singkat yang diharapkan.
+- Untuk mencegah spam balasan invalid, input teks invalid yang sama pada step yang sama akan di-debounce selama ~2-3 detik.
 
 ### Flow A: Registered User (WhatsApp found in database)
 
