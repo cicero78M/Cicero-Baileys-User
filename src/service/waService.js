@@ -115,6 +115,8 @@ import {
 import {
   isAdminWhatsApp,
   formatToWhatsAppId,
+  formatToBaileysJid,
+  normalizeToPlainNumber,
   formatClientData,
   safeSendMessage,
   getAdminWAIds,
@@ -2520,6 +2522,8 @@ export function createHandleMessage(waClient, options = {}) {
     
     const waId =
       userWaNum.startsWith("62") ? userWaNum : "62" + userWaNum.replace(/^0/, "");
+    
+    // For database lookups, try both plain number and JID formats to support legacy data
     const operator = await findByOperator(waId);
     const superAdmin = operator ? null : await findBySuperAdmin(waId);
     
@@ -2547,11 +2551,14 @@ export function createHandleMessage(waClient, options = {}) {
       }
       
       // Start account linking flow
+      // Simpan dalam format JID untuk kompatibilitas dengan Baileys
+      const waIdJid = formatToBaileysJid(waId);
       setSession(chatId, {
         menu: "oprrequest",
         step: "link_choose_role",
         opr_clients: availableClients,
-        linking_wa_id: waId,
+        linking_wa_id: waIdJid,  // Gunakan format JID (@s.whatsapp.net)
+        linking_wa_id_plain: waId,  // Simpan juga versi plain untuk fallback
       });
       
       const msg = `🔗 *Penautan Akun Operator/Super Admin*

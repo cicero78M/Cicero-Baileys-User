@@ -5,9 +5,18 @@ let safeSendMessage;
 let isAdminWhatsApp;
 let sendWAFile;
 let isUnsupportedVersionError;
+let formatToBaileysJid;
+let normalizeToPlainNumber;
 
 beforeAll(async () => {
-  ({ safeSendMessage, isAdminWhatsApp, sendWAFile, isUnsupportedVersionError } = await import('../src/utils/waHelper.js'));
+  ({ 
+    safeSendMessage, 
+    isAdminWhatsApp, 
+    sendWAFile, 
+    isUnsupportedVersionError,
+    formatToBaileysJid,
+    normalizeToPlainNumber
+  } = await import('../src/utils/waHelper.js'));
 });
 
 test('safeSendMessage waits for client ready', async () => {
@@ -306,4 +315,67 @@ test('hasSameClientIdAsAdmin returns false for invalid input', async () => {
   
   expect(result).toBe(false);
   expect(mockQuery).not.toHaveBeenCalled();
+});
+
+// Tests for new JID format conversion functions
+test('formatToBaileysJid converts plain number to Baileys JID format', () => {
+  expect(formatToBaileysJid('628123456789')).toBe('628123456789@s.whatsapp.net');
+  expect(formatToBaileysJid('08123456789')).toBe('628123456789@s.whatsapp.net');
+  expect(formatToBaileysJid('8123456789')).toBe('628123456789@s.whatsapp.net');
+  expect(formatToBaileysJid('+62 812 3456 789')).toBe('628123456789@s.whatsapp.net');
+  expect(formatToBaileysJid('0812-3456-789')).toBe('628123456789@s.whatsapp.net');
+});
+
+test('formatToBaileysJid handles already formatted numbers', () => {
+  // Should strip existing suffix and apply new one
+  expect(formatToBaileysJid('628123456789@c.us')).toBe('628123456789@s.whatsapp.net');
+  expect(formatToBaileysJid('628123456789@s.whatsapp.net')).toBe('628123456789@s.whatsapp.net');
+});
+
+test('formatToBaileysJid returns empty string for invalid input', () => {
+  expect(formatToBaileysJid('')).toBe('');
+  expect(formatToBaileysJid(null)).toBe('');
+  expect(formatToBaileysJid(undefined)).toBe('');
+  expect(formatToBaileysJid('abc')).toBe('');
+});
+
+test('normalizeToPlainNumber extracts digits and adds 62 prefix', () => {
+  expect(normalizeToPlainNumber('628123456789')).toBe('628123456789');
+  expect(normalizeToPlainNumber('08123456789')).toBe('628123456789');
+  expect(normalizeToPlainNumber('8123456789')).toBe('628123456789');
+  expect(normalizeToPlainNumber('+62 812 3456 789')).toBe('628123456789');
+  expect(normalizeToPlainNumber('0812-3456-789')).toBe('628123456789');
+});
+
+test('normalizeToPlainNumber strips JID suffixes', () => {
+  expect(normalizeToPlainNumber('628123456789@c.us')).toBe('628123456789');
+  expect(normalizeToPlainNumber('628123456789@s.whatsapp.net')).toBe('628123456789');
+  expect(normalizeToPlainNumber('08123456789@c.us')).toBe('628123456789');
+});
+
+test('normalizeToPlainNumber returns empty string for invalid input', () => {
+  expect(normalizeToPlainNumber('')).toBe('');
+  expect(normalizeToPlainNumber(null)).toBe('');
+  expect(normalizeToPlainNumber(undefined)).toBe('');
+  expect(normalizeToPlainNumber('abc')).toBe('');
+});
+
+test('normalizeToPlainNumber and formatToBaileysJid work together', () => {
+  const inputs = [
+    '628123456789',
+    '08123456789', 
+    '628123456789@c.us',
+    '628123456789@s.whatsapp.net',
+    '+62 812 3456 789'
+  ];
+  
+  // All inputs should normalize to the same plain number
+  const plainNumbers = inputs.map(normalizeToPlainNumber);
+  expect(new Set(plainNumbers).size).toBe(1);
+  expect(plainNumbers[0]).toBe('628123456789');
+  
+  // And should convert to the same JID format
+  const jids = inputs.map(formatToBaileysJid);
+  expect(new Set(jids).size).toBe(1);
+  expect(jids[0]).toBe('628123456789@s.whatsapp.net');
 });

@@ -1,5 +1,10 @@
 // src/handler/menu/oprRequestHandlers.js
-import { isAdminWhatsApp, formatToWhatsAppId } from "../../utils/waHelper.js";
+import { 
+  isAdminWhatsApp, 
+  formatToWhatsAppId, 
+  formatToBaileysJid,
+  normalizeToPlainNumber
+} from "../../utils/waHelper.js";
 import { saveContactIfNew } from "../../service/googleContactsService.js";
 import { hariIndo } from "../../utils/constants.js";
 import {
@@ -13,6 +18,14 @@ function ignore(..._args) {}
 
 const OPERATOR_ROLE = "operator";
 
+/**
+ * Normalisasi nomor WhatsApp untuk pencarian di database
+ * Mengembalikan array dengan berbagai format untuk mendukung data lama dan baru:
+ * - Format plain: "628123456789"
+ * - Format JID Baileys: "628123456789@s.whatsapp.net"
+ * - Format legacy @c.us: "628123456789@c.us"
+ * - Format lokal: "08123456789"
+ */
 function normalizeAccessNumbers(rawNumber) {
   const digitsOnly = String(rawNumber || "").replace(/\D/g, "");
   if (!digitsOnly) return [];
@@ -24,10 +37,15 @@ function normalizeAccessNumbers(rawNumber) {
     waId = "62" + waId;
   }
 
-  const variants = new Set([waId]);
+  const variants = new Set([
+    waId,                                // Plain: "628123456789"
+    `${waId}@s.whatsapp.net`,           // Baileys JID format
+    `${waId}@c.us`,                     // Legacy format
+  ]);
+  
   const localDigits = waId.slice(2).replace(/^0+/, "");
   if (localDigits) {
-    variants.add("0" + localDigits);
+    variants.add("0" + localDigits);    // Local format: "08123456789"
   }
 
   return Array.from(variants);
@@ -2829,6 +2847,7 @@ Balas *angka* (1/2) sesuai status baru, atau *batal* untuk keluar.
       session.step = null;
       delete session.opr_clients;
       delete session.linking_wa_id;
+      delete session.linking_wa_id_plain;
       delete session.linking_role;
       await waClient.sendMessage(chatId, "❎ Penautan akun dibatalkan.");
       return;
@@ -2861,6 +2880,7 @@ Balas *angka* (1/2) sesuai status baru, atau *batal* untuk keluar.
       );
       delete session.opr_clients;
       delete session.linking_wa_id;
+      delete session.linking_wa_id_plain;
       delete session.linking_role;
       session.menu = null;
       session.step = null;
@@ -2893,6 +2913,7 @@ Balas *nomor* atau *client_id* untuk melanjutkan, atau *batal* untuk keluar.`;
       session.step = null;
       delete session.opr_clients;
       delete session.linking_wa_id;
+      delete session.linking_wa_id_plain;
       delete session.linking_role;
       await waClient.sendMessage(chatId, "❎ Penautan akun dibatalkan.");
       return;
@@ -2905,6 +2926,7 @@ Balas *nomor* atau *client_id* untuk melanjutkan, atau *batal* untuk keluar.`;
       );
       delete session.opr_clients;
       delete session.linking_wa_id;
+      delete session.linking_wa_id_plain;
       delete session.linking_role;
       session.menu = null;
       session.step = null;
@@ -2946,6 +2968,7 @@ Balas *nomor* atau *client_id* untuk melanjutkan, atau *batal* untuk keluar.`;
       );
       delete session.opr_clients;
       delete session.linking_wa_id;
+      delete session.linking_wa_id_plain;
       delete session.linking_role;
       session.menu = null;
       session.step = null;
@@ -2965,12 +2988,16 @@ Balas *nomor* atau *client_id* untuk melanjutkan, atau *batal* untuk keluar.`;
         return;
       }
       
+      // Pastikan waId dalam format JID (@s.whatsapp.net) untuk konsistensi
+      // Jika waId belum dalam format JID, konversi
+      const waIdToStore = waId.includes('@') ? waId : formatToBaileysJid(waId);
+      
       // Update client based on role
       let updateData = {};
       let roleLabel = "";
       
       if (role === "operator") {
-        updateData.client_operator = waId;
+        updateData.client_operator = waIdToStore;  // Simpan dalam format JID
         roleLabel = "Operator";
       } else if (role === "super_admin") {
         // For super admin, append to existing list if there's already a value
@@ -2980,8 +3007,15 @@ Balas *nomor* atau *client_id* untuk melanjutkan, atau *batal* untuk keluar.`;
           .filter(Boolean)
           .map(s => s.trim());
         
-        if (!superList.includes(waId)) {
-          superList.push(waId);
+        // Cek apakah nomor sudah ada (baik dalam format plain maupun JID)
+        const waIdPlain = normalizeToPlainNumber(waIdToStore);
+        const isDuplicate = superList.some(existing => {
+          const existingPlain = normalizeToPlainNumber(existing);
+          return existingPlain === waIdPlain;
+        });
+        
+        if (!isDuplicate) {
+          superList.push(waIdToStore);  // Simpan dalam format JID
         }
         
         updateData.client_super = superList.join(", ");
@@ -3017,6 +3051,7 @@ Anda sekarang dapat mengakses menu operator. Ketik *oprrequest* untuk memulai.`
     // Clean up session
     delete session.opr_clients;
     delete session.linking_wa_id;
+    delete session.linking_wa_id_plain;
     delete session.linking_role;
     session.menu = null;
     session.step = null;
