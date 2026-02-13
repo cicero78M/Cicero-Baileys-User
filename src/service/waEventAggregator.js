@@ -1,7 +1,10 @@
 // TTL-based cache for message deduplication to prevent memory leak
 // Messages are kept for 24 hours by default (configurable via WA_MESSAGE_DEDUP_TTL_MS)
 const seenMessages = new Map(); // key -> timestamp
+const seenSemanticFingerprints = new Map(); // key -> timestamp
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const DEFAULT_SEMANTIC_DEDUP_TTL_MS = 15000; // 15 seconds
+const DEFAULT_SEMANTIC_DEDUP_BUCKET_MS = 5000; // 5 seconds
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 // Parse TTL from environment, with validation
@@ -22,6 +25,41 @@ function parseMessageDedupTTL() {
 
 const MESSAGE_DEDUP_TTL_MS = parseMessageDedupTTL();
 
+function parseSemanticDedupTTL() {
+  const envValue = process.env.WA_SEMANTIC_DEDUP_TTL_MS;
+  if (!envValue) return DEFAULT_SEMANTIC_DEDUP_TTL_MS;
+
+  const parsed = parseInt(envValue, 10);
+  if (Number.isNaN(parsed) || parsed < 10000 || parsed > 30000) {
+    console.warn(
+      `[WA-EVENT-AGGREGATOR] Invalid WA_SEMANTIC_DEDUP_TTL_MS="${envValue}", ` +
+      `using default ${DEFAULT_SEMANTIC_DEDUP_TTL_MS}ms (must be between 10000ms and 30000ms)`
+    );
+    return DEFAULT_SEMANTIC_DEDUP_TTL_MS;
+  }
+
+  return parsed;
+}
+
+function parseSemanticDedupBucketMs() {
+  const envValue = process.env.WA_SEMANTIC_DEDUP_BUCKET_MS;
+  if (!envValue) return DEFAULT_SEMANTIC_DEDUP_BUCKET_MS;
+
+  const parsed = parseInt(envValue, 10);
+  if (Number.isNaN(parsed) || parsed < 2000 || parsed > 5000) {
+    console.warn(
+      `[WA-EVENT-AGGREGATOR] Invalid WA_SEMANTIC_DEDUP_BUCKET_MS="${envValue}", ` +
+      `using default ${DEFAULT_SEMANTIC_DEDUP_BUCKET_MS}ms (must be between 2000ms and 5000ms)`
+    );
+    return DEFAULT_SEMANTIC_DEDUP_BUCKET_MS;
+  }
+
+  return parsed;
+}
+
+const SEMANTIC_DEDUP_TTL_MS = parseSemanticDedupTTL();
+const SEMANTIC_DEDUP_BUCKET_MS = parseSemanticDedupBucketMs();
+
 // Periodic cleanup of expired entries to prevent memory leak
 function cleanupExpiredMessages() {
   const now = Date.now();
@@ -33,6 +71,13 @@ function cleanupExpiredMessages() {
       removedCount++;
     }
   }
+
+  for (const [key, timestamp] of seenSemanticFingerprints.entries()) {
+    if (now - timestamp > SEMANTIC_DEDUP_TTL_MS) {
+      seenSemanticFingerprints.delete(key);
+      removedCount++;
+    }
+  }
   
   if (removedCount > 0 && debugLoggingEnabled) {
     console.log(
@@ -40,6 +85,43 @@ function cleanupExpiredMessages() {
       `current cache size: ${seenMessages.size}`
     );
   }
+}
+
+function getNormalizedMessageBody(msg) {
+  const rawBody =
+    msg?.body ||
+    msg?.text ||
+    msg?.message?.conversation ||
+    msg?.message?.extendedTextMessage?.text ||
+    msg?.message?.imageMessage?.caption ||
+    msg?.message?.videoMessage?.caption ||
+    "";
+
+  return String(rawBody)
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getStepSnapshot(msg) {
+  return String(
+    msg?.stepSnapshot ||
+      msg?.step ||
+      msg?.sessionStep ||
+      msg?.meta?.step ||
+      "default"
+  );
+}
+
+function buildSemanticFingerprint(jid, msg, now = Date.now()) {
+  const normalizedBody = getNormalizedMessageBody(msg);
+  if (!normalizedBody) {
+    return null;
+  }
+
+  const stepSnapshot = getStepSnapshot(msg);
+  const timeBucket = Math.floor(now / SEMANTIC_DEDUP_BUCKET_MS);
+  return `${jid}:${normalizedBody}:${stepSnapshot}:${timeBucket}`;
 }
 
 // Start periodic cleanup
@@ -93,17 +175,20 @@ export function handleIncoming(fromAdapter, msg, handler, options = {}) {
     return;
   }
   const key = `${jid}:${id}`;
-  if (allowReplay) {
-    if (debugLoggingEnabled) {
-      console.log(`[WA-EVENT-AGGREGATOR] Allowing replay for message: ${key}`);
-    }
-    seenMessages.set(key, Date.now());
-    invokeHandler();
-    return;
-  }
-  if (seenMessages.has(key)) {
+  const now = Date.now();
+  if (!allowReplay && seenMessages.has(key)) {
     if (debugLoggingEnabled) {
       console.log(`[WA-EVENT-AGGREGATOR] Duplicate message detected, skipping: ${key}`);
+    }
+    return;
+  }
+
+  const semanticFingerprint = buildSemanticFingerprint(jid, msg, now);
+  if (semanticFingerprint && seenSemanticFingerprints.has(semanticFingerprint)) {
+    if (debugLoggingEnabled) {
+      console.log(
+        `[WA-EVENT-AGGREGATOR] Semantic duplicate detected, skipping: ${semanticFingerprint}`
+      );
     }
     return;
   }
@@ -111,27 +196,52 @@ export function handleIncoming(fromAdapter, msg, handler, options = {}) {
   if (debugLoggingEnabled) {
     console.log(`[WA-EVENT-AGGREGATOR] Processing message from ${fromAdapter}: ${key}`);
   }
-  seenMessages.set(key, Date.now());
+  if (allowReplay && debugLoggingEnabled) {
+    console.log(`[WA-EVENT-AGGREGATOR] Allowing replay for message ID dedup: ${key}`);
+  }
+
+  seenMessages.set(key, now);
+  if (semanticFingerprint) {
+    seenSemanticFingerprints.set(semanticFingerprint, now);
+  }
   invokeHandler();
 }
 
 /**
  * Get statistics about the message deduplication cache
- * @returns {{ size: number, ttlMs: number, oldestEntryAgeMs: number }}
+ * @returns {{
+ *  idDedup: { size: number, ttlMs: number, oldestEntryAgeMs: number },
+ *  semanticDedup: { size: number, ttlMs: number, bucketMs: number, oldestEntryAgeMs: number }
+ * }}
  */
 export function getMessageDedupStats() {
   const now = Date.now();
-  let oldestTimestamp = now;
+  let oldestIdTimestamp = now;
+  let oldestSemanticTimestamp = now;
   
   for (const timestamp of seenMessages.values()) {
-    if (timestamp < oldestTimestamp) {
-      oldestTimestamp = timestamp;
+    if (timestamp < oldestIdTimestamp) {
+      oldestIdTimestamp = timestamp;
+    }
+  }
+
+  for (const timestamp of seenSemanticFingerprints.values()) {
+    if (timestamp < oldestSemanticTimestamp) {
+      oldestSemanticTimestamp = timestamp;
     }
   }
   
   return {
-    size: seenMessages.size,
-    ttlMs: MESSAGE_DEDUP_TTL_MS,
-    oldestEntryAgeMs: now - oldestTimestamp,
+    idDedup: {
+      size: seenMessages.size,
+      ttlMs: MESSAGE_DEDUP_TTL_MS,
+      oldestEntryAgeMs: now - oldestIdTimestamp,
+    },
+    semanticDedup: {
+      size: seenSemanticFingerprints.size,
+      ttlMs: SEMANTIC_DEDUP_TTL_MS,
+      bucketMs: SEMANTIC_DEDUP_BUCKET_MS,
+      oldestEntryAgeMs: now - oldestSemanticTimestamp,
+    },
   };
 }
