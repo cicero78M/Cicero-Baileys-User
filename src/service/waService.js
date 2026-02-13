@@ -112,6 +112,7 @@ import {
   shouldAutoStartUserMenu,
   shouldSendLightHelpForUnknownMessage,
 } from "../utils/waUserMenuPolicy.js";
+import { resolveInitialUserMenuFlow } from "../utils/waInitialUserMenuFlow.js";
 import {
   isAdminWhatsApp,
   formatToWhatsAppId,
@@ -2825,22 +2826,56 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
     }
 
     // Check if user needs account linking when no session exists
-    if (
-      allowUserMenu &&
-      !isAdminCommand &&
-      lowerText &&
-      !hasAnySession() &&
-      !isInTimeoutCooldown(chatId)  // Don't auto-start if just timed out
-    ) {
-      // Check if user is already linked
-      const user = await getUserByWa();
-      
-      if (!user) {
-        // User not linked - start account linking workflow automatically
-        await startUserMenuSession();
+    const initialUserMenuFlow = resolveInitialUserMenuFlow({
+      allowUserMenu,
+      isAdminCommand,
+      lowerText,
+      originalText: text,
+      hasAnySession: hasAnySession(),
+      hadSessionAtStart,
+      isInTimeoutCooldown: isInTimeoutCooldown(chatId),
+      isLinked: Boolean(await getUserByWa()),
+    });
+
+    if (initialUserMenuFlow.shouldEvaluate) {
+      if (!initialUserMenuFlow.shouldAutoStart) {
+        // User is linked but sent unknown message - stay silent to avoid confusion
         return;
       }
-      // User is linked but sent unknown message - stay silent to avoid confusion
+
+      if (initialUserMenuFlow.useDirectNrpInput) {
+        userMenuContext[chatId] = userMenuContext[chatId] || {};
+        userMenuContext[chatId].menu = "userrequest";
+        userMenuContext[chatId].step = "inputUserId";
+        markUserMenuActivity(userMenuContext[chatId]);
+
+        await userMenuHandlers.inputUserId(
+          userMenuContext[chatId],
+          chatId,
+          text,
+          waClient,
+          pool,
+          userModel
+        );
+
+        if (!userMenuContext[chatId]) {
+          return;
+        }
+
+        if (userMenuContext[chatId].exit) {
+          clearTimeout(userMenuContext[chatId].timeout);
+          clearTimeout(userMenuContext[chatId].warningTimeout);
+          clearTimeout(userMenuContext[chatId].noReplyTimeout);
+          delete userMenuContext[chatId];
+        } else {
+          const expectReply = shouldExpectQuickReply(userMenuContext[chatId]);
+          setMenuTimeout(chatId, waClient, expectReply);
+        }
+        return;
+      }
+
+      // User not linked with non-NRP first message: start normal user menu
+      await startUserMenuSession();
       return;
     }
 
