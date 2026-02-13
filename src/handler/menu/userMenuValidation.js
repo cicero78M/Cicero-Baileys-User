@@ -24,8 +24,71 @@ export const RESERVED_USERNAMES = ['cicero_devs', 'admin', 'superadmin'];
  * @returns {{valid: boolean, digits: string, error: string}}
  */
 export function validateNRP(input) {
-  const normalizedDigits = normalizeUnicodeDigits(input);
-  const digits = normalizedDigits.replace(/\D/g, '');
+  const normalizedDigits = normalizeUnicodeDigits(input || '');
+  const trimmedInput = normalizedDigits.trim();
+
+  if (!trimmedInput) {
+    return {
+      valid: false,
+      digits: '',
+      error: [
+        '❌ NRP/NIP wajib diisi dan harus berupa angka.',
+        'Kirim *NRP/NIP saja* dalam satu balasan (tanpa teks tambahan).',
+        '',
+        'Contoh: 87020990',
+        'Ketik *batal* untuk keluar.',
+      ].join('\n'),
+    };
+  }
+
+  const nrpTokenPattern = /^\d+(?:[ .-]?\d+)*$/;
+  const numericGroups = trimmedInput.match(/\d+/g) || [];
+
+  if (/\d+\s*\/\s*\d+/.test(trimmedInput)) {
+    return {
+      valid: false,
+      digits: '',
+      error: [
+        '❌ Format NRP/NIP tidak valid.',
+        'Kirim *NRP/NIP saja* dalam satu balasan, bukan format pecahan/tanggal/quote.',
+        '',
+        'Contoh yang benar: 87020990',
+        'Ketik *batal* untuk keluar.',
+      ].join('\n'),
+    };
+  }
+
+  if (!nrpTokenPattern.test(trimmedInput) || numericGroups.length === 0) {
+    return {
+      valid: false,
+      digits: '',
+      error: [
+        '❌ NRP/NIP harus berupa satu kandidat angka yang jelas.',
+        'Kirim *NRP/NIP saja* dalam satu balasan, tanpa teks/konteks lain.',
+        '',
+        'Contoh: 87020990',
+        'Ketik *batal* untuk keluar.',
+      ].join('\n'),
+    };
+  }
+
+  const separators = trimmedInput.match(/[ .-]+/g) || [];
+  const uniqueSeparators = new Set(separators.map((sep) => sep[0]));
+  if (uniqueSeparators.size > 1) {
+    return {
+      valid: false,
+      digits: '',
+      error: [
+        '❌ Format NRP/NIP tidak konsisten.',
+        'Gunakan satu format saja dan kirim *NRP/NIP saja* dalam satu balasan.',
+        '',
+        'Contoh: 87020990',
+        'Ketik *batal* untuk keluar.',
+      ].join('\n'),
+    };
+  }
+
+  const digits = numericGroups.join('');
   
   if (!digits) {
     return {
@@ -46,7 +109,8 @@ export function validateNRP(input) {
       valid: false,
       digits: '',
       error: [
-        `❌ NRP/NIP harus terdiri dari ${FIELD_LIMITS.nrp.min}-${FIELD_LIMITS.nrp.max} digit angka setelah karakter non-angka dibuang.`,
+        `❌ NRP/NIP harus terdiri dari ${FIELD_LIMITS.nrp.min}-${FIELD_LIMITS.nrp.max} digit angka.`,
+        'Kirim *NRP/NIP saja* dalam satu balasan.',
         '',
         'Contoh: 87020990',
         'Ketik *batal* untuk keluar.',

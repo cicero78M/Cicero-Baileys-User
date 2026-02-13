@@ -169,20 +169,28 @@ try {
 ```
 
 ### 3. Validasi Input
-Semua input user harus divalidasi:
+Semua input user harus divalidasi (termasuk guard anti-teks campuran untuk NRP/NIP):
 
 ```javascript
 // Centralized validation di userMenuValidation.js
 export function validateNRP(text) {
-  const digits = text.trim().replace(/\D/g, '');
-  
-  if (digits.length !== 8) {
+  const normalized = normalizeUnicodeDigits(text || '').trim();
+
+  if (!/^\d+(?:[ .-]?\d+)*$/.test(normalized) || /\d+\s*\/\s*\d+/.test(normalized)) {
     return {
       valid: false,
-      error: '❌ NRP/NIP harus 8 digit angka.\n💡 Contoh: 87020990'
+      error: '❌ Kirim NRP/NIP saja dalam satu balasan.\n💡 Contoh: 87020990'
     };
   }
-  
+
+  const digits = (normalized.match(/\d+/g) || []).join('');
+  if (digits.length < 6 || digits.length > 18) {
+    return {
+      valid: false,
+      error: '❌ NRP/NIP harus 6-18 digit angka.\n💡 Contoh: 87020990'
+    };
+  }
+
   return { valid: true, digits };
 }
 ```

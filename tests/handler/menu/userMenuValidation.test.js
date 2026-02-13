@@ -2,26 +2,27 @@ import { validateNRP } from '../../../src/handler/menu/userMenuValidation.js';
 
 describe('validateNRP', () => {
   it('accepts normal ASCII digits', () => {
-    const result = validateNRP('87100529');
+    const result = validateNRP('69040249');
 
-    expect(result).toEqual({ valid: true, digits: '87100529', error: '' });
+    expect(result).toEqual({ valid: true, digits: '69040249', error: '' });
   });
 
-  it('normalizes fullwidth digits to ASCII before validation', () => {
-    const result = validateNRP('８７１００５２９');
+  it('normalizes unicode digits to ASCII before validation', () => {
+    const result = validateNRP('٦٩٠٤٠٢٤٩');
 
-    expect(result).toEqual({ valid: true, digits: '87100529', error: '' });
+    expect(result).toEqual({ valid: true, digits: '69040249', error: '' });
   });
 
-  it('normalizes Arabic-Indic digits to ASCII before validation', () => {
-    const result = validateNRP('٨٧١٠٠٥٢٩');
+  it('rejects mixed context containing multiple numeric groups like pagination and NRP', () => {
+    const result = validateNRP('Laporan 1/2 NRP 69040249');
 
-    expect(result).toEqual({ valid: true, digits: '87100529', error: '' });
+    expect(result.valid).toBe(false);
+    expect(result.digits).toBe('');
+    expect(result.error).toContain('Kirim *NRP/NIP saja* dalam satu balasan');
   });
 
-  it('strips non-digit characters after normalization', () => {
-    const result = validateNRP('NRP: ٨٧١-００５.２９/abc');
-
-    expect(result).toEqual({ valid: true, digits: '87100529', error: '' });
+  it('rejects empty or non-digit input', () => {
+    expect(validateNRP('   ').valid).toBe(false);
+    expect(validateNRP('halo').valid).toBe(false);
   });
 });

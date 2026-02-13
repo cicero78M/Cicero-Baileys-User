@@ -41,7 +41,7 @@ Contains all step handlers for the user menu flow:
 
 #### 2. userMenuValidation.js
 Centralized validation logic:
-- `validateNRP()` - Validates NRP/NIP (6-18 digits)
+- `validateNRP()` - Memvalidasi NRP/NIP berbasis satu kandidat token angka (6-18 digit) setelah normalisasi Unicode digit; menolak input campuran (mis. `1/2`, timestamp, quote, atau teks tambahan).
 - `validateTextField()` - Validates text fields with length limits
 - `validateInstagram()` - Validates Instagram username/URL
 - `validateTikTok()` - Validates TikTok username/URL
@@ -91,9 +91,9 @@ Display formatting utilities:
    ↓ (not linked)
 3. System prompts for NRP/NIP
    ↓
-4. User enters NRP/NIP (e.g., "87020990", fullwidth, atau Arabic-Indic digit)
+4. User enters NRP/NIP *saja* dalam satu balasan (contoh: "87020990", termasuk varian fullwidth/Arabic-Indic digit).
    ↓
-5. System validates (6-18 digits)
+5. System validates: hanya satu kandidat token angka yang valid (6-18 digit), menolak konteks angka lain/campuran teks.
    ↓
 6. System finds user in database
    ↓
@@ -122,7 +122,7 @@ Display formatting utilities:
 
 | Field | Min Length | Max Length | Format | Additional Validation |
 |-------|-----------|-----------|--------|---------------------|
-| NRP/NIP | 6 digits | 18 digits | Numbers only (Unicode digit variants are normalized) | Must exist in database |
+| NRP/NIP | 6 digits | 18 digits | Satu kandidat angka (Unicode digit variants are normalized; pemisah terbatas di dalam kandidat diperbolehkan) | Menolak konteks campuran seperti `1/2`/quote/timestamp; harus ada di database |
 | Nama | 2 chars | 100 chars | Uppercase (auto-converted) | - |
 | Pangkat | - | - | From predefined list | Case-insensitive match |
 | Satfung | - | - | From predefined list | Case-insensitive match |
@@ -133,7 +133,7 @@ Display formatting utilities:
 
 **Note**: Text fields (Nama, Jabatan, Desa) are automatically converted to uppercase to match database conventions. If future fields require different casing, the `validateTextField()` function should be extended with a casing parameter.
 
-**Note**: NRP/NIP validation first normalizes common Unicode digit formats (e.g., fullwidth and Arabic-Indic) into ASCII digits, then removes non-digit characters before length checks.
+**Note**: NRP/NIP validation first normalizes common Unicode digit formats (e.g., fullwidth and Arabic-Indic) into ASCII digits, lalu memvalidasi satu kandidat token angka (dengan pemisah terbatas) sebelum pengecekan panjang.
 
 ## Error Handling
 
