@@ -82,6 +82,9 @@ import {
   knownUserSet,
   setMenuTimeout,
   markUserMenuActivity,
+  setUserMenuStep,
+  createUserMenuStepSnapshot,
+  shouldDropStaleUserMenuInput,
   waBindSessions,
   setBindTimeout,
   operatorOptionSessions,
@@ -2378,7 +2381,8 @@ export function createHandleMessage(waClient, options = {}) {
             shouldExpectQuickReply(userMenuContext[chatId])
           );
         } else {
-          userMenuContext[chatId] = { step: "inputUserId" };
+          userMenuContext[chatId] = {};
+          setUserMenuStep(userMenuContext[chatId], "inputUserId");
           const msg =
             `${salam}! Nomor WhatsApp Anda belum terdaftar.` +
             "\n\nBalas pesan ini dengan memasukan NRP Anda," +
@@ -2444,7 +2448,8 @@ export function createHandleMessage(waClient, options = {}) {
             shouldExpectQuickReply(userMenuContext[chatId])
           );
         } else {
-          userMenuContext[chatId] = { step: "inputUserId" };
+          userMenuContext[chatId] = {};
+      setUserMenuStep(userMenuContext[chatId], "inputUserId");
           const msg =
             `${salam}! Nomor WhatsApp Anda belum terdaftar.` +
             "\n\nBalas pesan ini dengan memasukan NRP Anda," +
@@ -2753,32 +2758,54 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         delete userMenuContext[chatId];
         return;
       }
-      
+
+      const userMenuSnapshot = createUserMenuStepSnapshot(userMenuContext[chatId]);
+
       // Acquire lock to prevent concurrent processing for the same chatId
       const releaseLock = await acquireProcessingLock(chatId, {
         scope: "userMenuContext",
         step: userMenuContext[chatId]?.step || "unknown",
       });
-      
+
       try {
         // Verify session still exists after acquiring lock (could have been deleted while waiting)
         if (!userMenuContext[chatId]) {
           return;
         }
-        
+
         const session = userMenuContext[chatId];
+        const latestStepVersion = Number.isFinite(session.stepVersion)
+          ? session.stepVersion
+          : 0;
+        if (
+          shouldDropStaleUserMenuInput({
+            snapshot: userMenuSnapshot,
+            session,
+            text,
+          })
+        ) {
+          console.log(
+            `${clientLabel} Dropping stale user menu input for ${chatId} (snapshot step=${userMenuSnapshot.step}, version=${userMenuSnapshot.stepVersion}, receivedAt=${userMenuSnapshot.receivedAt}; latest step=${session.step}, version=${latestStepVersion})`
+          );
+          await waClient.sendMessage(
+            chatId,
+            "Input sebelumnya sudah kedaluwarsa, silakan ulangi sesuai menu aktif."
+          );
+          return;
+        }
+
         const handler = userMenuHandlers[session.step];
         if (handler) {
           markUserMenuActivity(session);
           await handler(session, chatId, text, waClient, pool, userModel);
-          
+
           // Verify session still exists before accessing properties
           // Note: Early returns are safe - finally block always executes to release the lock
           // regardless of how the try block exits (return, throw, or normal completion)
           if (!userMenuContext[chatId]) {
             return;
           }
-          
+
           // Set timeout AFTER handler completes to avoid race conditions
           if (session.exit) {
             clearTimeout(session.timeout);
@@ -2849,7 +2876,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       if (initialUserMenuFlow.useDirectNrpInput) {
         userMenuContext[chatId] = userMenuContext[chatId] || {};
         userMenuContext[chatId].menu = "userrequest";
-        userMenuContext[chatId].step = "inputUserId";
+        setUserMenuStep(userMenuContext[chatId], "inputUserId");
         markUserMenuActivity(userMenuContext[chatId]);
 
         await userMenuHandlers.inputUserId(
@@ -4315,7 +4342,8 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         shouldExpectQuickReply(userMenuContext[chatId])
       );
     } else {
-      userMenuContext[chatId] = { step: "inputUserId" };
+      userMenuContext[chatId] = {};
+      setUserMenuStep(userMenuContext[chatId], "inputUserId");
       const msg =
         `${salam}! Nomor WhatsApp Anda belum terdaftar.` +
         clientInfoText +

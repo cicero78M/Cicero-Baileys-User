@@ -23,6 +23,7 @@ import {
   validateTikTok,
   validateListSelection,
 } from "./userMenuValidation.js";
+import { setUserMenuStep } from "../../utils/sessionsHelper.js";
 
 
 export const SESSION_CLOSED_MESSAGE =
@@ -84,14 +85,14 @@ export const userMenuHandlers = {
         "",
         "⏱️ Sesi aktif: 5 menit",
       ].join("\n");
-      session.step = "tanyaUpdateMyData";
+      setUserMenuStep(session, "tanyaUpdateMyData");
       await waClient.sendMessage(chatId, msgText.trim());
       return;
     }
 
     // No WhatsApp number registered, ask for NRP/NIP
     console.log(`[userrequest] User NOT found for normalized number: ${pengirim}`);
-    session.step = "inputUserId";
+    setUserMenuStep(session, "inputUserId");
     const msgText = [
       "🔐 *Registrasi Akun* (Langkah 1/2)",
       "",
@@ -118,7 +119,7 @@ export const userMenuHandlers = {
     
     if (answer === "ya") {
       session.identityConfirmed = true;
-      session.step = "tanyaUpdateMyData";
+      setUserMenuStep(session, "tanyaUpdateMyData");
       await waClient.sendMessage(
         chatId,
         [
@@ -150,7 +151,7 @@ export const userMenuHandlers = {
     if (answer === "ya") {
       session.identityConfirmed = true;
       session.updateUserId = session.user_id;
-      session.step = "updateAskField";
+      setUserMenuStep(session, "updateAskField");
       await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
       return;
     } else if (answer === "tidak" || answer === "batal") {
@@ -222,7 +223,7 @@ export const userMenuHandlers = {
           return;
         }
         
-        session.step = "confirmBindUser";
+        setUserMenuStep(session, "confirmBindUser");
         session.bindUserId = digits;
         await waClient.sendMessage(
           chatId,
@@ -293,7 +294,7 @@ export const userMenuHandlers = {
         );
         session.identityConfirmed = true;
         session.user_id = user_id;
-        session.step = "tanyaUpdateMyData";
+        setUserMenuStep(session, "tanyaUpdateMyData");
         await waClient.sendMessage(
           chatId,
           [
@@ -354,7 +355,7 @@ export const userMenuHandlers = {
         await waClient.sendMessage(chatId, `✅ Nomor berhasil dihubungkan ke NRP/NIP *${nrp}*.`);
         session.identityConfirmed = true;
         session.user_id = nrp;
-        session.step = "updateAskField";
+        setUserMenuStep(session, "updateAskField");
         await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
       } catch (err) {
         console.error('[confirmBindUpdate] Error updating WhatsApp field:', err);
@@ -456,7 +457,7 @@ export const userMenuHandlers = {
       }
     }
     
-    session.step = "updateAskValue";
+    setUserMenuStep(session, "updateAskValue");
     
     // Show prompt with current value
     const fieldInfo = getFieldInfo(field, currentUser);
@@ -604,7 +605,7 @@ export const userMenuHandlers = {
       // Just transition to next step - don't auto-call the handler
       session.identityConfirmed = true;
       session.updateUserId = session.user_id;
-      session.step = "updateAskField";
+      setUserMenuStep(session, "updateAskField");
       await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
       return;
     } else if (answer === "tidak" || answer === "batal") {
