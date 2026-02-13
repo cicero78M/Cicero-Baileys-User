@@ -206,7 +206,8 @@ export const userMenuHandlers = {
       } else {
         // Check if the account already has a different WhatsApp number linked
         const currentWA = normalizeWhatsappNumber(chatId);
-        if (user.whatsapp && user.whatsapp !== '' && user.whatsapp !== currentWA) {
+        const storedWA = user.whatsapp ? normalizeWhatsappNumber(user.whatsapp) : '';
+        if (storedWA && storedWA !== currentWA) {
           await waClient.sendMessage(
             chatId,
             [
