@@ -95,6 +95,7 @@ import {
   acquireProcessingLock,
   isProcessing,
   isInTimeoutCooldown,
+  setSessionTimeoutCooldown,
 } from "../utils/sessionsHelper.js";
 
 import {
@@ -2315,6 +2316,8 @@ export function createHandleMessage(waClient, options = {}) {
       if (session.warningTimeout) clearTimeout(session.warningTimeout);
       if (session.noReplyTimeout) clearTimeout(session.noReplyTimeout);
       delete userMenuContext[chatId];
+      // Set cooldown to prevent auto-start of bind session after cancellation
+      setSessionTimeoutCooldown(chatId);
       if (allowUserMenu) {
         await waClient.sendMessage(chatId, "✅ Menu User ditutup. Terima kasih.");
       }
@@ -4405,6 +4408,10 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         return;
       }
     } else {
+      // Don't auto-start bind session if user just timed out or canceled a session
+      if (isInTimeoutCooldown(chatId)) {
+        return;
+      }
       waBindSessions[chatId] = { step: "ask_nrp" };
       setBindTimeout(chatId);
       await waClient.sendMessage(
