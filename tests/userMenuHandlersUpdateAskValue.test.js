@@ -105,3 +105,45 @@ describe("userMenuHandlers.updateAskValue social media normalization", () => {
     );
   });
 });
+
+
+describe("userMenuHandlers intent parser integration", () => {
+  const chatId = "628111222333@c.us";
+  let waClient;
+
+  beforeEach(() => {
+    waClient = { sendMessage: jest.fn().mockResolvedValue() };
+  });
+
+  it.each(["ok", "oke"])('accepts synonym %s as affirmative in confirmBindUpdate', async (input) => {
+    const session = { updateUserId: "12345", isDitbinmas: false };
+    const userModel = {
+      updateUserField: jest.fn().mockResolvedValue(),
+    };
+
+    await userMenuHandlers.confirmBindUpdate(
+      session,
+      chatId,
+      input,
+      waClient,
+      null,
+      userModel
+    );
+
+    expect(userModel.updateUserField).toHaveBeenCalledWith("12345", "whatsapp", "628111222333");
+    expect(session.step).toBe("updateAskField");
+  });
+
+  it("debounces repeated invalid input in confirmBindUpdate", async () => {
+    const session = { updateUserId: "12345" };
+
+    await userMenuHandlers.confirmBindUpdate(session, chatId, "mungkin", waClient, null, {});
+    await userMenuHandlers.confirmBindUpdate(session, chatId, "mungkin", waClient, null, {});
+
+    expect(waClient.sendMessage).toHaveBeenCalledTimes(1);
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("Menu aktif saat ini: *Konfirmasi update nomor WhatsApp*")
+    );
+  });
+});

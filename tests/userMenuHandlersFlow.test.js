@@ -257,7 +257,68 @@ describe("userMenuHandlers conversational flow", () => {
 
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      expect.stringContaining("Balas *ya* jika ingin update data, *tidak* untuk kembali, atau *batal* untuk menutup sesi.")
+      expect.stringContaining("🧭 Menu aktif saat ini: *Konfirmasi lanjut update data*")
+    );
+  });
+
+
+
+  it.each(["iya", "y", "ok", "oke"])("accepts synonym %s as affirmative in tanyaUpdateMyData", async (input) => {
+    const session = { user_id: "123" };
+
+    await userMenuHandlers.tanyaUpdateMyData(
+      session,
+      chatId,
+      input,
+      waClient,
+      null,
+      null
+    );
+
+    expect(session.step).toBe("updateAskField");
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("Pilih Field yang Ingin Diupdate")
+    );
+  });
+
+  it.each(["ga", "gak", "n"])("accepts synonym %s as negative in tanyaUpdateMyData", async (input) => {
+    const session = {};
+
+    await userMenuHandlers.tanyaUpdateMyData(
+      session,
+      chatId,
+      input,
+      waClient,
+      null,
+      null
+    );
+
+    expect(session.exit).toBe(true);
+    expect(waClient.sendMessage).toHaveBeenCalledWith(chatId, SESSION_CLOSED_MESSAGE);
+  });
+
+  it("debounces repeated invalid input in tanyaUpdateMyData", async () => {
+    const session = {};
+
+    await userMenuHandlers.tanyaUpdateMyData(session, chatId, "mungkin", waClient, null, null);
+    await userMenuHandlers.tanyaUpdateMyData(session, chatId, "mungkin", waClient, null, null);
+
+    expect(waClient.sendMessage).toHaveBeenCalledTimes(1);
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("Menu aktif saat ini")
+    );
+  });
+
+  it("shows active menu hint for invalid option in updateAskField", async () => {
+    const session = { isDitbinmas: false };
+
+    await userMenuHandlers.updateAskField(session, chatId, "abc", waClient, null, null);
+
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("🧭 Menu aktif saat ini: *Pilih field yang ingin diupdate*")
     );
   });
 

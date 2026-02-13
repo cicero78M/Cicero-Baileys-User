@@ -24,6 +24,13 @@ import {
   validateListSelection,
 } from "./userMenuValidation.js";
 import { setUserMenuStep } from "../../utils/sessionsHelper.js";
+import {
+  getIntentParserHint,
+  isDebouncedRepeatedInput,
+  parseAffirmativeNegativeIntent,
+  parseNumericOptionIntent,
+  normalizeUserMenuText,
+} from "./userMenuIntentParser.js";
 
 
 export const SESSION_CLOSED_MESSAGE =
@@ -255,7 +262,7 @@ export const userMenuHandlers = {
   },
 
   confirmBindUser: async (session, chatId, text, waClient, pool, userModel) => {
-    const answer = text.trim().toLowerCase();
+    const answer = normalizeUserMenuText(text);
     
     // If user sends empty message, stay silent to avoid confusion
     if (!answer) {
@@ -264,7 +271,9 @@ export const userMenuHandlers = {
     
     const waNum = normalizeWhatsappNumber(chatId);
     console.log(`[userrequest] Binding: chatId=${chatId}, normalized=${waNum}`);
-    if (answer === "ya") {
+    const intent = parseAffirmativeNegativeIntent(answer);
+
+    if (intent === "affirmative") {
       try {
         const user_id = session.bindUserId;
         console.log(`[userrequest] Storing WhatsApp ${waNum} for user ${user_id}`);
@@ -317,7 +326,7 @@ export const userMenuHandlers = {
       }
       return;
     }
-    if (answer === "tidak" || answer === "batal") {
+    if (intent === "negative" || answer === "batal") {
       await waClient.sendMessage(
         chatId,
         "✅ Proses dibatalkan. Nomor WhatsApp tidak dihubungkan.\n\nKetik *userrequest* untuk mencoba lagi atau hubungi operator jika membutuhkan bantuan."
@@ -325,14 +334,17 @@ export const userMenuHandlers = {
       session.exit = true;
       return;
     }
-    await waClient.sendMessage(
-      chatId,
-      "❌ Jawaban tidak dikenali.\n\nBalas *ya* untuk menghubungkan nomor atau *tidak* untuk membatalkan."
-    );
+    if (isDebouncedRepeatedInput(session, "confirmBindUser", answer)) {
+      return;
+    }
+    await waClient.sendMessage(chatId, getIntentParserHint({
+      step: "Konfirmasi penghubung WhatsApp",
+      example: "ya / tidak",
+    }));
   },
 
   confirmBindUpdate: async (session, chatId, text, waClient, pool, userModel) => {
-    const ans = text.trim().toLowerCase();
+    const ans = normalizeUserMenuText(text);
     
     // If user sends empty message, stay silent to avoid confusion
     if (!ans) {
@@ -340,7 +352,9 @@ export const userMenuHandlers = {
     }
     
     const waNum = normalizeWhatsappNumber(chatId);
-    if (ans === "ya") {
+    const intent = parseAffirmativeNegativeIntent(ans);
+
+    if (intent === "affirmative") {
       try {
         const nrp = session.updateUserId;
         await userModel.updateUserField(nrp, "whatsapp", waNum);
@@ -367,7 +381,7 @@ export const userMenuHandlers = {
       }
       return;
     }
-    if (ans === "tidak" || ans === "batal") {
+    if (intent === "negative" || ans === "batal") {
       await waClient.sendMessage(
         chatId,
         "✅ Proses dibatalkan. Nomor WhatsApp tidak dihubungkan.\n\nKetik *userrequest* untuk kembali ke menu atau hubungi operator jika membutuhkan bantuan."
@@ -375,10 +389,13 @@ export const userMenuHandlers = {
       session.exit = true;
       return;
     }
-    await waClient.sendMessage(
-      chatId,
-      "❌ Jawaban tidak dikenali.\n\nBalas *ya* untuk menghubungkan nomor atau *tidak* untuk membatalkan."
-    );
+    if (isDebouncedRepeatedInput(session, "confirmBindUpdate", ans)) {
+      return;
+    }
+    await waClient.sendMessage(chatId, getIntentParserHint({
+      step: "Konfirmasi update nomor WhatsApp",
+      example: "ya / tidak",
+    }));
   },
 
   // --- Pilih field update
@@ -395,7 +412,7 @@ export const userMenuHandlers = {
       allowedFields.push({ key: "desa", label: "Desa Binaan" });
     }
 
-    const lower = text.trim().toLowerCase();
+    const lower = normalizeUserMenuText(text);
     
     // If user sends empty message, stay silent to avoid confusion
     if (!lower) {
@@ -408,16 +425,19 @@ export const userMenuHandlers = {
       await waClient.sendMessage(chatId, "✅ Menu ditutup. Terima kasih.");
       return;
     }
-    if (!new RegExp(`^[1-${maxOption}]$`).test(lower)) {
-      // Only send error message, do not resend the menu
-      await waClient.sendMessage(
-        chatId,
-        "❌ Pilihan tidak valid. Balas dengan angka sesuai daftar (contoh: 1) atau ketik *batal* untuk keluar."
-      );
+    const selectedOption = parseNumericOptionIntent(lower, maxOption);
+    if (!selectedOption) {
+      if (isDebouncedRepeatedInput(session, "updateAskField", lower)) {
+        return;
+      }
+      await waClient.sendMessage(chatId, getIntentParserHint({
+        step: "Pilih field yang ingin diupdate",
+        example: `1..${maxOption}`,
+      }));
       return;
     }
 
-    const idx = parseInt(lower) - 1;
+    const idx = selectedOption - 1;
     const field = allowedFields[idx].key;
     session.updateField = field;
     
@@ -594,27 +614,32 @@ export const userMenuHandlers = {
   },
 
   tanyaUpdateMyData: async (session, chatId, text, waClient, pool, userModel) => {
-    const answer = text.trim().toLowerCase();
+    const answer = normalizeUserMenuText(text);
     
     // If user sends empty message, stay silent to avoid confusion
     if (!answer) {
       return;
     }
     
-    if (answer === "ya") {
+    const intent = parseAffirmativeNegativeIntent(answer);
+
+    if (intent === "affirmative") {
       // Just transition to next step - don't auto-call the handler
       session.identityConfirmed = true;
       session.updateUserId = session.user_id;
       setUserMenuStep(session, "updateAskField");
       await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
       return;
-    } else if (answer === "tidak" || answer === "batal") {
+    } else if (intent === "negative" || answer === "batal") {
       await closeSession(session, chatId, waClient);
       return;
     }
-    await waClient.sendMessage(
-      chatId,
-      "❌ Jawaban tidak dikenali.\n\nBalas *ya* jika ingin update data, *tidak* untuk kembali, atau *batal* untuk menutup sesi."
-    );
+    if (isDebouncedRepeatedInput(session, "tanyaUpdateMyData", answer)) {
+      return;
+    }
+    await waClient.sendMessage(chatId, getIntentParserHint({
+      step: "Konfirmasi lanjut update data",
+      example: "ya / tidak",
+    }));
   },
 };
