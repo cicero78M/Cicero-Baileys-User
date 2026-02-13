@@ -101,7 +101,54 @@ describe("userMenuHandlers.updateAskValue social media normalization", () => {
     expect(userModel.updateUserField).not.toHaveBeenCalled();
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      expect.stringContaining("❌ Akun TikTok tersebut sudah terdaftar pada pengguna lain.")
+      expect.stringContaining("❌ TikTok *@duplicate.user* sudah terdaftar pada pengguna lain.")
+    );
+  });
+
+  it("stores last processed payload and keeps success value aligned for sequential inputs", async () => {
+    const session = buildSession("insta");
+    userModel.findUserByInsta
+      .mockResolvedValueOnce({ user_id: "99999" })
+      .mockResolvedValueOnce(null);
+
+    await userMenuHandlers.updateAskValue(
+      session,
+      chatId,
+      "@duplicate.user",
+      waClient,
+      pool,
+      userModel
+    );
+
+    expect(userModel.updateUserField).not.toHaveBeenCalled();
+    expect(waClient.sendMessage).toHaveBeenLastCalledWith(
+      chatId,
+      expect.stringContaining("❌ Instagram *@duplicate.user* sudah terdaftar")
+    );
+
+    await userMenuHandlers.updateAskValue(
+      session,
+      chatId,
+      "@final.valid",
+      waClient,
+      pool,
+      userModel
+    );
+
+    expect(userModel.updateUserField).toHaveBeenCalledWith(
+      "12345",
+      "insta",
+      "final.valid"
+    );
+    expect(session.lastProcessedInput).toEqual({
+      field: "insta",
+      value: "final.valid",
+      rawInput: "@final.valid",
+    });
+    expect(session.lastProcessedAt).toEqual(expect.any(String));
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("*Instagram* untuk NRP/NIP *12345* berhasil diupdate menjadi *@final.valid*.")
     );
   });
 });
