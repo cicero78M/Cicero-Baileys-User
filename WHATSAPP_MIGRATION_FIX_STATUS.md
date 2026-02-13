@@ -101,6 +101,7 @@ For a cleaner long-term state:
    ```
 3. **Backup database** before migration:
    ```sql
+   -- Replace YYYYMMDD with current date, e.g., user_backup_20260213
    CREATE TABLE user_backup_YYYYMMDD AS SELECT * FROM "user";
    ```
 4. **Run migration script**:
@@ -147,6 +148,7 @@ If issues occur (unlikely given test coverage):
 1. **Code rollback**: Deploy previous version
 2. **Database rollback** (if migration was run):
    ```sql
+   -- Replace YYYYMMDD with your backup table date
    BEGIN;
    UPDATE "user" SET whatsapp = backup.whatsapp 
    FROM user_backup_YYYYMMDD backup 
