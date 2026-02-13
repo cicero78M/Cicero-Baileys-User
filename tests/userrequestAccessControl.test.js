@@ -79,6 +79,10 @@ describe("userrequest access control with WhatsApp linking", () => {
       chatId2,
       expect.stringContaining("Satu akun hanya dapat diakses dari satu nomor WhatsApp")
     );
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId2,
+      expect.stringContaining("Silahkan update menggunakan https://papiqo.com/claim")
+    );
     expect(session.step).toBe("inputUserId"); // Should stay at same step
   });
 

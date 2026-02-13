@@ -141,6 +141,7 @@ Display formatting utilities:
 - User-friendly error messages with examples
 - No internal error details exposed
 - Clear instructions on how to fix
+- Untuk kasus NRP/NIP sudah terhubung dengan nomor WhatsApp lain, user diarahkan untuk update data melalui web claim: `https://papiqo.com/claim`.
 
 ### Database Errors
 - Logged with context (handler name, user info)
