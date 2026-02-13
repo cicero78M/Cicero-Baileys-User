@@ -1017,9 +1017,9 @@ function flushPendingMessages(client) {
       const entry =
         pending && typeof pending === "object" && "msg" in pending
           ? pending
-          : { msg: pending, allowReplay: false };
+          : { msg: pending, allowIdReplay: false };
       const deferredMsg = entry.msg;
-      const allowReplay = Boolean(entry.allowReplay);
+      const allowIdReplay = Boolean(entry.allowIdReplay ?? entry.allowReplay);
       writeWaStructuredLog(
         "debug",
         buildWaStructuredLog({
@@ -1044,7 +1044,7 @@ function flushPendingMessages(client) {
         return;
       }
       handleIncoming(handlerInfo.fromAdapter, deferredMsg, handlerInfo.handler, {
-        allowReplay,
+        allowReplay: allowIdReplay,
       });
     });
   }
@@ -1826,7 +1826,7 @@ export function createHandleMessage(waClient, options = {}) {
         `${clientLabel} Client not ready, message from ${msg.from} deferred`
       );
       const readinessState = getClientReadinessState(waClient);
-      readinessState.pendingMessages.push({ msg, allowReplay: true });
+      readinessState.pendingMessages.push({ msg, allowIdReplay: true });
       waClient
         .sendMessage(msg.from, "🤖 Bot sedang memuat, silakan tunggu")
         .catch(() => {

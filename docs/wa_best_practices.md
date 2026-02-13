@@ -41,6 +41,7 @@ Business Logic Processing
 3. **waEventAggregator.js**: Message deduplication
    - Prevents duplicate message processing
    - Handles normalized message source from adapter/service boundary
+   - Dual dedup layers: ID-level (`jid:id`) and semantic fingerprint (`jid + normalizedBody + stepSnapshot + timeBucket`)
    - TTL-based cache to prevent memory leaks
    - Automatic cleanup of expired entries
 
@@ -422,6 +423,8 @@ setInterval(cleanup, INTERVAL); // Process won't exit!
 WA_SERVICE_SKIP_INIT=false
 WA_DEBUG_LOGGING=false
 WA_MESSAGE_DEDUP_TTL_MS=86400000
+WA_SEMANTIC_DEDUP_TTL_MS=15000
+WA_SEMANTIC_DEDUP_BUCKET_MS=5000
 
 # === Current Runtime Truth ===
 # Satu client aktif: waUserClient (alias: waClient)
@@ -445,7 +448,9 @@ WA_AUTH_CLEAR_SESSION_ON_REINIT=false
 
 | Setting | Default | Min | Max | Description |
 |---------|---------|-----|-----|-------------|
-| `WA_MESSAGE_DEDUP_TTL_MS` | 86400000 (24h) | 60000 (1m) | - | Message cache TTL |
+| `WA_MESSAGE_DEDUP_TTL_MS` | 86400000 (24h) | 60000 (1m) | - | ID-level dedup cache TTL (`jid:id`) |
+| `WA_SEMANTIC_DEDUP_TTL_MS` | 15000 (15s) | 10000 (10s) | 30000 (30s) | Semantic dedup cache TTL |
+| `WA_SEMANTIC_DEDUP_BUCKET_MS` | 5000 (5s) | 2000 (2s) | 5000 (5s) | Semantic dedup time bucket |
 | `WA_WWEBJS_PROTOCOL_TIMEOUT_MS` | 120000 (2m) | - | 300000 | Protocol timeout |
 | `WA_STORE_INIT_DELAY_MS` | 2000 | 0 | - | Store init delay |
 
