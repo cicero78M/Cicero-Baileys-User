@@ -56,6 +56,26 @@ describe("User Menu Cancellation Cooldown", () => {
     expect(isInTimeoutCooldown(chatId)).toBe(true);
   });
 
+  it("should expire cooldown after 30 seconds", () => {
+    jest.useFakeTimers();
+    
+    // Set cooldown
+    setSessionTimeoutCooldown(chatId);
+
+    // Verify cooldown is active
+    expect(isInTimeoutCooldown(chatId)).toBe(true);
+
+    // Advance timers by 29 seconds - should still be in cooldown
+    jest.advanceTimersByTime(29000);
+    expect(isInTimeoutCooldown(chatId)).toBe(true);
+
+    // Advance timers by 2 more seconds (total 31 seconds) - cooldown should expire
+    jest.advanceTimersByTime(2000);
+    expect(isInTimeoutCooldown(chatId)).toBe(false);
+
+    jest.useRealTimers();
+  });
+
   it("should prevent auto-start when cooldown is active", () => {
     // Set cooldown
     setSessionTimeoutCooldown(chatId);
@@ -66,7 +86,7 @@ describe("User Menu Cancellation Cooldown", () => {
     expect(shouldAutoStart).toBe(false);
   });
 
-  it("should allow auto-start when cooldown is not active for different user", () => {
+  it("should allow auto-start for user without active cooldown", () => {
     // Use a different chatId that doesn't have cooldown
 
     // Simulate checking before auto-starting bind session
