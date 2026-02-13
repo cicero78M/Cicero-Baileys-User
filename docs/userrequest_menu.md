@@ -286,3 +286,12 @@ Display formatting utilities:
 - [Database Structure](./database_structure.md)
 - [Naming Conventions](./naming_conventions.md)
 - [WhatsApp Best Practices](./wa_best_practices.md)
+
+
+### Guard Input Stale pada Perpindahan Step
+
+- Gunakan `setUserMenuStep(session, nextStep)` untuk **setiap perpindahan `session.step`** agar `stepVersion` naik secara monotonik.
+- Saat message masuk di `createHandleMessage`, sistem menyimpan snapshot `{ step, stepVersion, receivedAt }` sebelum antre lock.
+- Setelah lock didapat, snapshot dibandingkan dengan state terbaru. Bila `stepVersion` berubah, input dianggap stale dan di-drop.
+- Pengecualian command global: `batal`, `back`, `userrequest` tetap diproses agar user tetap bisa keluar/navigasi.
+- Saat stale input di-drop, bot mengirim pesan netral: `Input sebelumnya sudah kedaluwarsa, silakan ulangi sesuai menu aktif.`

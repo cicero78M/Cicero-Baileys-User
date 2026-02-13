@@ -228,6 +228,69 @@ export function markUserMenuActivity(session) {
   session.lastActivityAt = Date.now();
 }
 
+/**
+ * Ambil snapshot step aktif untuk validasi anti-stale saat antrean lock.
+ * @param {object} session
+ * @returns {{step: string|null, stepVersion: number, receivedAt: number}}
+ */
+export function createUserMenuStepSnapshot(session) {
+  return {
+    step: session?.step || null,
+    stepVersion: Number.isFinite(session?.stepVersion) ? session.stepVersion : 0,
+    receivedAt: Date.now(),
+  };
+}
+
+/**
+ * Cek apakah input adalah command global yang tetap boleh diproses meskipun snapshot stale.
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isGlobalUserMenuCommand(text = "") {
+  const normalized = String(text || "").trim().toLowerCase();
+  return ["batal", "back", "userrequest"].includes(normalized);
+}
+
+/**
+ * Tentukan apakah input harus di-drop karena stale dibanding kondisi step terbaru.
+ * @param {{snapshot: {stepVersion: number}, session: object, text: string}} params
+ * @returns {boolean}
+ */
+export function shouldDropStaleUserMenuInput({ snapshot, session, text }) {
+  const latestStepVersion = Number.isFinite(session?.stepVersion)
+    ? session.stepVersion
+    : 0;
+  const snapshotStepVersion = Number.isFinite(snapshot?.stepVersion)
+    ? snapshot.stepVersion
+    : 0;
+  return latestStepVersion !== snapshotStepVersion && !isGlobalUserMenuCommand(text);
+}
+
+/**
+ * Set langkah sesi user menu sekaligus increment versi monotonik langkah.
+ * Versi ini dipakai untuk mendeteksi input yang datang terlambat (stale)
+ * saat antrean lock sedang sibuk.
+ * @param {object} session
+ * @param {string} nextStep
+ */
+export function setUserMenuStep(session, nextStep) {
+  if (!session || typeof session !== "object") {
+    return;
+  }
+  if (!nextStep || typeof nextStep !== "string") {
+    return;
+  }
+  if (session.step === nextStep) {
+    return;
+  }
+
+  const currentStepVersion = Number.isFinite(session.stepVersion)
+    ? session.stepVersion
+    : 0;
+  session.step = nextStep;
+  session.stepVersion = currentStepVersion + 1;
+}
+
 // Timeout untuk proses binding WhatsApp
 export function setBindTimeout(chatId) {
   if (waBindSessions[chatId]?.timeout) {

@@ -6,9 +6,17 @@ import {
   userMenuHandlers,
 } from "../src/handler/menu/userMenuHandlers.js";
 
+let createUserMenuStepSnapshot;
+let setUserMenuStep;
+let shouldDropStaleUserMenuInput;
+
 describe("userMenuHandlers conversational flow", () => {
   const chatId = "628111222333@c.us";
   let waClient;
+
+  beforeAll(async () => {
+    ({ createUserMenuStepSnapshot, setUserMenuStep, shouldDropStaleUserMenuInput } = await import("../src/utils/sessionsHelper.js"));
+  });
 
   beforeEach(() => {
     waClient = {
@@ -434,4 +442,54 @@ describe("userMenuHandlers conversational flow", () => {
     expect(waClient.sendMessage).not.toHaveBeenCalled();
     expect(session.exit).toBeUndefined();
   });
+
+  it("increments stepVersion monotonically when flow moves across steps", async () => {
+    const session = {};
+    const userModel = {
+      findUserByWhatsApp: jest.fn().mockResolvedValue({
+        user_id: "123",
+        nama: "Bripka Seno",
+      }),
+    };
+
+    await userMenuHandlers.main(session, chatId, "", waClient, null, userModel);
+    expect(session.step).toBe("tanyaUpdateMyData");
+    expect(session.stepVersion).toBe(1);
+
+    await userMenuHandlers.tanyaUpdateMyData(
+      session,
+      chatId,
+      "ya",
+      waClient,
+      null,
+      { ...userModel }
+    );
+    expect(session.step).toBe("updateAskField");
+    expect(session.stepVersion).toBe(2);
+  });
+
+  it("drops stale burst input when stepVersion changed, except for global command", () => {
+    const session = { step: "inputUserId", stepVersion: 1 };
+    const firstSnapshot = createUserMenuStepSnapshot(session);
+
+    // Simulasi message lain memindahkan step lebih dulu
+    setUserMenuStep(session, "confirmBindUser");
+
+    expect(
+      shouldDropStaleUserMenuInput({
+        snapshot: firstSnapshot,
+        session,
+        text: "12345678",
+      })
+    ).toBe(true);
+
+    expect(
+      shouldDropStaleUserMenuInput({
+        snapshot: firstSnapshot,
+        session,
+        text: "batal",
+      })
+    ).toBe(false);
+  });
+
 });
