@@ -1,6 +1,6 @@
 # User Request Menu - Documentation
 
-Last updated: 2026-02-12
+Last updated: 2026-02-13
 
 ## Overview
 
@@ -87,19 +87,35 @@ Display formatting utilities:
 ```
 1. User sends "userrequest"
    ↓
-2. System prompts for NRP/NIP
+2. System checks whether WhatsApp number is already linked (`findUserByWhatsApp`)
+   ↓ (not linked)
+3. System prompts for NRP/NIP
    ↓
-3. User enters NRP/NIP (e.g., "87020990", fullwidth, atau Arabic-Indic digit)
+4. User enters NRP/NIP (e.g., "87020990", fullwidth, atau Arabic-Indic digit)
    ↓
-4. System validates (6-18 digits)
+5. System validates (6-18 digits)
    ↓
-5. System finds user in database
+6. System finds user in database
    ↓
-6. System asks: Link WhatsApp to this account?
+7. System asks: Link WhatsApp to this account?
    ↓ (ya)
-7. System updates whatsapp field → Shows user data
+8. System updates whatsapp field → Shows user data
    ↓
-8. Continue to Flow A step 4
+9. Continue to Flow A step 4
+```
+
+#### Flow B.1: First message is already an NRP/NIP (without typing `userrequest`)
+
+```
+1. User sends first message directly as NRP/NIP candidate (e.g., "87020990")
+   ↓
+2. System checks whether WhatsApp number is already linked (`findUserByWhatsApp`)
+   ↓
+3a. If linked: bind flow is not triggered (message is treated as regular unknown input)
+3b. If not linked: system validates NRP/NIP using the same validator as `inputUserId`
+   ↓
+4a. If valid: session is initialized to step `inputUserId` and verification/bind-confirm flow continues immediately
+4b. If invalid: system falls back to normal user menu start and prompts NRP/NIP input
 ```
 
 ## Field Validation Rules
