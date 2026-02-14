@@ -1,11 +1,9 @@
 // src/handler/menu/oprRequestHandlers.js
 import { 
   isAdminWhatsApp, 
-  formatToWhatsAppId, 
   formatToBaileysJid,
   normalizeToPlainNumber
 } from "../../utils/waHelper.js";
-import { saveContactIfNew } from "../../service/googleContactsService.js";
 import { hariIndo } from "../../utils/constants.js";
 import {
   getGreeting,
@@ -2007,9 +2005,6 @@ Balas *angka* (1/2) sesuai status baru, atau *batal* untuk keluar.
 
     try {
       await userModel.updateUserField(user_id, field, value);
-      if (field === "whatsapp" && value) {
-        await saveContactIfNew(formatToWhatsAppId(value));
-      }
       await waClient.sendMessage(
         chatId,
         `✅ Data *${field === "title" ? "pangkat" : field === "divisi" ? "satfung" : field}* untuk NRP ${user_id} berhasil diupdate menjadi *${value}*.`
