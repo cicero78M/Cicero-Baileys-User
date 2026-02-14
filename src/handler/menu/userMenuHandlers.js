@@ -605,6 +605,18 @@ export const userMenuHandlers = {
       );
       return;
     }
+
+    if (["menu", "kembali", "back"].includes(lower)) {
+      delete session.updateField;
+      delete session.availableTitles;
+      delete session.availableSatfung;
+      resetUpdateAskFieldRetry(session);
+
+      setUserMenuStep(session, "updateAskField");
+      await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
+      return;
+    }
+
     const user_id = session.updateUserId;
     let field = session.updateField;
     const rawInput = text.trim();

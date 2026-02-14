@@ -108,6 +108,7 @@ export function formatFieldUpdatePrompt(fieldKey, displayName, currentValue) {
     example ? `${example}` : '',
     '',
     '⏹️ Ketik *batal* untuk membatalkan.',
+    '↩️ Ketik *menu* untuk kembali ke daftar field.',
     '⏱️ Sesi aktif: 5 menit',
   ]
     .filter(Boolean)

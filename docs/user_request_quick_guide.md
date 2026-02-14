@@ -156,9 +156,10 @@ Jika ingin update data user/personil selain via WA bot, gunakan juga:
 1. Baca pesan sistem dengan teliti
 2. Perhatikan contoh yang diberikan
 3. Di menu pilih field update, ketik **menu** untuk menampilkan ulang daftar field
-4. Jika kirim beberapa angka sekaligus (mis. `4,5,6`), sistem akan minta pilih satu dulu
-5. Ketik "batal" lalu mulai lagi jika bingung
-6. Hubungi Operator untuk bantuan
+4. Saat sudah masuk input nilai field, ketik **menu**, **kembali**, atau **back** untuk kembali ke daftar field tanpa keluar sesi
+5. Jika kirim beberapa angka sekaligus (mis. `4,5,6`), sistem akan minta pilih satu dulu
+6. Ketik "batal" lalu mulai lagi jika bingung
+7. Hubungi Operator untuk bantuan
 
 ---
 
@@ -227,6 +228,7 @@ Hubungi Opr CICERO Polres Anda atau ketik **oprrequest** untuk bantuan operator.
 ✨ **Recovery Lebih Jelas untuk Pilihan Field**
 - Jika user kirim banyak angka sekaligus (contoh `4,5,6`), bot memberi arahan: pilih satu dulu
 - Setelah beberapa kali gagal, bot menyarankan ketik **menu** untuk ulang dari daftar field
+- Saat input nilai field, gunakan **menu/kembali/back** untuk pindah ke pilihan field lain tanpa menutup sesi
 
 ✨ **Waktu Sesi Lebih Lama**
 - Sebelumnya: 3 menit
