@@ -177,7 +177,7 @@ Display formatting utilities:
 - User-friendly error messages with examples
 - No internal error details exposed
 - Clear instructions on how to fix
-- Untuk kasus NRP/NIP sudah terhubung dengan nomor WhatsApp lain, user diarahkan untuk update data melalui web claim: `https://papiqo.com/claim`.
+- Untuk kasus NRP/NIP sudah terhubung dengan nomor WhatsApp lain, user diarahkan untuk update data personil melalui web claim: `https://papiqo.com/claim` atau bot Telegram Cicero Update: `https://t.me/cicero_update_bot` (ketik `/menu`, lalu ikuti petunjuk).
 
 ### Database Errors
 - Logged with context (handler name, user info)
