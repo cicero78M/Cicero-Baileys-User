@@ -78,6 +78,8 @@ Display formatting utilities:
   - informasi **menu aktif saat ini**, dan
   - contoh format jawaban singkat yang diharapkan.
 - Untuk mencegah spam balasan invalid, input teks invalid yang sama pada step yang sama akan di-debounce selama ~2-3 detik.
+- Pada step `tanyaUpdateMyData` dan `updateAskField`, ketika invalid yang sama terdeteksi berulang di dalam window debounce, bot tidak diam total: bot memberi feedback singkat **"⏳ Input sama terdeteksi, mohon tunggu respon sebelumnya atau ketik *menu*."**.
+- Feedback singkat di atas tetap anti-flood: dikirim maksimal **1x per 2.5 detik per step** (cooldown internal per step).
 - Untuk mencegah user terjebak, `updateAskField` memiliki retry limit. Setelah beberapa kali gagal, bot akan mengarahkan user untuk ketik **menu** dan menampilkan ulang daftar field.
 
 ### Contoh Input Parser (Diterima vs Ditolak)
