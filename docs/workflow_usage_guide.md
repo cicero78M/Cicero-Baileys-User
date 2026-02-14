@@ -79,6 +79,9 @@ WA_AUTH_CLEAR_SESSION_ON_REINIT=false
 # Opsional: logging debug WA
 WA_DEBUG_LOGGING=false
 
+# Opsional: fallback sementara ke flow bind legacy
+WA_ENABLE_LEGACY_BIND_FLOW=false
+
 # Opsional: test-only, jangan aktifkan di production
 WA_SERVICE_SKIP_INIT=false
 ```

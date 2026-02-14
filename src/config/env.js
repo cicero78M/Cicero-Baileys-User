@@ -23,6 +23,7 @@ export const env = cleanEnv(process.env, {
   APP_SESSION_NAME: str({ default: '' }),
   USER_WA_CLIENT_ID: str({ default: 'wa-userrequest' }),
   WA_AUTO_START_USER_MENU: bool({ default: false }),
+  WA_ENABLE_LEGACY_BIND_FLOW: bool({ default: false }),
   WA_PROCESSING_LOCK_TIMEOUT_MS: num({ default: 30000 }),
   WA_WEB_VERSION: str({ default: '' }),
   WA_WEB_VERSION_CACHE_URL: str({
