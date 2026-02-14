@@ -212,6 +212,7 @@ Display formatting utilities:
 - Warning at 4 minutes
 - Auto-cleanup on timeout
 - User must restart with "userrequest"
+- Pada pesan penutupan sesi (termasuk saat user mengetik `batal`), user juga diberi informasi alternatif update data personil via web `https://papiqo.com/claim` atau bot Telegram `https://t.me/cicero_update_bot` (ketik `/menu`, lalu ikuti petunjuk).
 - **Anti-stale timeout guard (activity sequence):** every valid incoming message for an active `userrequest` session increments a monotonic `activitySeq` and refreshes `lastActivityAt`.
 - When `warningTimeout` and `noReplyTimeout` are scheduled, each timer stores a snapshot of `activitySeq`.
 - Before timeout/warning/reminder messages are sent, the timer validates snapshot sequence against the latest session sequence; if sequence changed, stale timeout message is cancelled.

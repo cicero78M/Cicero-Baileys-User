@@ -118,6 +118,10 @@ Kapan saja selama sesi, ketik: **batal**
 
 Sistem akan menutup sesi dan Anda bisa memulai lagi dengan ketik: **userrequest**
 
+Jika ingin update data user/personil selain via WA bot, gunakan juga:
+- Web: **https://papiqo.com/claim**
+- Bot Telegram **Cicero_Update**: **https://t.me/cicero_update_bot** (ketik **/menu** lalu ikuti petunjuk)
+
 ---
 
 ## ❓ Troubleshooting

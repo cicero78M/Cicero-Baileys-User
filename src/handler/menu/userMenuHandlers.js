@@ -33,7 +33,13 @@ import {
 
 
 export const SESSION_CLOSED_MESSAGE =
-  "Terima kasih. Sesi ditutup. Ketik *userrequest* untuk memulai lagi.";
+  [
+    "Terima kasih. Sesi ditutup. Ketik *userrequest* untuk memulai lagi.",
+    "",
+    "Update data user/personil selain via WA bot juga bisa melalui:",
+    "• Web: https://papiqo.com/claim",
+    "• Bot Telegram Cicero_Update: https://t.me/cicero_update_bot (ketik */menu* lalu ikuti petunjuk)",
+  ].join("\n");
 
 const UPDATE_ASK_FIELD_MAX_RETRY = 3;
 const REPEATED_INVALID_INPUT_FEEDBACK =
@@ -577,7 +583,16 @@ export const userMenuHandlers = {
     
     if (lower === "batal") {
       session.exit = true;
-      await waClient.sendMessage(chatId, "✅ Perubahan dibatalkan. Ketik *userrequest* untuk memulai lagi.");
+      await waClient.sendMessage(
+        chatId,
+        [
+          "✅ Perubahan dibatalkan. Ketik *userrequest* untuk memulai lagi.",
+          "",
+          "Update data user/personil selain via WA bot juga bisa melalui:",
+          "• Web: https://papiqo.com/claim",
+          "• Bot Telegram Cicero_Update: https://t.me/cicero_update_bot (ketik */menu* lalu ikuti petunjuk)",
+        ].join("\n")
+      );
       return;
     }
     const user_id = session.updateUserId;
