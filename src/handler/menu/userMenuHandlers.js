@@ -27,13 +27,32 @@ import {
   getIntentParserHint,
   isDebouncedRepeatedInput,
   parseAffirmativeNegativeIntent,
-  parseNumericOptionIntent,
+  parseNumericSelectionIntent,
   normalizeUserMenuText,
 } from "./userMenuIntentParser.js";
 
 
 export const SESSION_CLOSED_MESSAGE =
   "Terima kasih. Sesi ditutup. Ketik *userrequest* untuk memulai lagi.";
+
+const UPDATE_ASK_FIELD_MAX_RETRY = 3;
+
+const getMenuRetryFallbackMessage = (maxOption) =>
+  [
+    "⚠️ Input belum sesuai.",
+    "Silakan balas satu angka sesuai field yang ingin diubah.",
+    `Contoh: *1..${maxOption}*`,
+    "💡 Jika bingung, ketik *menu* untuk ulang dari daftar field.",
+  ].join("\n");
+
+const incrementUpdateAskFieldRetry = (session) => {
+  session.updateAskFieldRetry = (session.updateAskFieldRetry || 0) + 1;
+  return session.updateAskFieldRetry;
+};
+
+const resetUpdateAskFieldRetry = (session) => {
+  session.updateAskFieldRetry = 0;
+};
 
 export const closeSession = async (
   session,
@@ -410,19 +429,59 @@ export const userMenuHandlers = {
       await waClient.sendMessage(chatId, "✅ Menu ditutup. Terima kasih.");
       return;
     }
-    const selectedOption = parseNumericOptionIntent(lower, maxOption);
-    if (!selectedOption) {
-      if (isDebouncedRepeatedInput(session, "updateAskField", lower)) {
-        return;
-      }
-      await waClient.sendMessage(chatId, getIntentParserHint({
-        step: "Pilih field yang ingin diupdate",
-        example: `1..${maxOption}`,
-      }));
+
+    if (lower === "menu") {
+      resetUpdateAskFieldRetry(session);
+      await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
       return;
     }
 
-    const idx = selectedOption - 1;
+    const selectionIntent = parseNumericSelectionIntent(lower, maxOption, {
+      allowBatch: false,
+    });
+
+    if (selectionIntent.type === "multi_not_supported") {
+      const retryCount = incrementUpdateAskFieldRetry(session);
+      await waClient.sendMessage(
+        chatId,
+        [
+          "ℹ️ Untuk langkah ini, saat ini pilih satu dulu, nanti ditanya lagi.",
+          `Anda mengirim lebih dari satu angka: *${selectionIntent.values.join(", "
+          )}*`,
+          "Ketik satu angka (mis. *4*) atau ketik *menu* untuk ulang dari daftar field.",
+        ].join("\n")
+      );
+      if (retryCount >= UPDATE_ASK_FIELD_MAX_RETRY) {
+        resetUpdateAskFieldRetry(session);
+        await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
+      }
+      return;
+    }
+
+    if (selectionIntent.type !== "single") {
+      if (isDebouncedRepeatedInput(session, "updateAskField", lower)) {
+        return;
+      }
+      const retryCount = incrementUpdateAskFieldRetry(session);
+      if (retryCount >= UPDATE_ASK_FIELD_MAX_RETRY) {
+        resetUpdateAskFieldRetry(session);
+        await waClient.sendMessage(chatId, getMenuRetryFallbackMessage(maxOption));
+        await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
+        return;
+      }
+      await waClient.sendMessage(
+        chatId,
+        `${getIntentParserHint({
+          step: "Pilih field yang ingin diupdate",
+          example: `1..${maxOption}`,
+        })}\n\n${getMenuRetryFallbackMessage(maxOption)}`
+      );
+      return;
+    }
+
+    resetUpdateAskFieldRetry(session);
+
+    const idx = selectionIntent.value - 1;
     const field = allowedFields[idx].key;
     session.updateField = field;
     

@@ -1,6 +1,6 @@
 # Panduan Cepat: User Request via WhatsApp
 
-*Terakhir diperbarui: 2026-02-12*
+*Terakhir diperbarui: 2026-02-14*
 
 ## 📱 Cara Memulai
 
@@ -148,8 +148,10 @@ Sistem akan menutup sesi dan Anda bisa memulai lagi dengan ketik: **userrequest*
 **Solusi**:
 1. Baca pesan sistem dengan teliti
 2. Perhatikan contoh yang diberikan
-3. Ketik "batal" lalu mulai lagi jika bingung
-4. Hubungi Operator untuk bantuan
+3. Di menu pilih field update, ketik **menu** untuk menampilkan ulang daftar field
+4. Jika kirim beberapa angka sekaligus (mis. `4,5,6`), sistem akan minta pilih satu dulu
+5. Ketik "batal" lalu mulai lagi jika bingung
+6. Hubungi Operator untuk bantuan
 
 ---
 
@@ -210,6 +212,14 @@ Hubungi Opr CICERO Polres Anda atau ketik **oprrequest** untuk bantuan operator.
 ## 🆕 Update Terbaru (2026-02-12)
 
 ### Apa yang Berubah?
+
+✨ **Parser Input Lebih Toleran**
+- Jawaban singkat seperti `ya.`, `ya kak`, `ok ya` kini tetap dikenali
+- Karakter control/zero-width dan punctuation ringan dibersihkan otomatis
+
+✨ **Recovery Lebih Jelas untuk Pilihan Field**
+- Jika user kirim banyak angka sekaligus (contoh `4,5,6`), bot memberi arahan: pilih satu dulu
+- Setelah beberapa kali gagal, bot menyarankan ketik **menu** untuk ulang dari daftar field
 
 ✨ **Waktu Sesi Lebih Lama**
 - Sebelumnya: 3 menit

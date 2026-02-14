@@ -1,6 +1,6 @@
 # User Request Menu - Documentation
 
-Last updated: 2026-02-13
+Last updated: 2026-02-14
 
 ## Overview
 
@@ -50,8 +50,10 @@ Centralized validation logic:
 
 #### 3. userMenuIntentParser.js
 Intent parser khusus menu interaktif user:
-- `parseAffirmativeNegativeIntent()` - Mapping sinonim jawaban (ya/iya/y/ok/oke, tidak/ga/gak/n)
-- `parseNumericOptionIntent()` - Parsing pilihan numerik valid (`1..n`)
+- `normalizeUserMenuText()` - Normalisasi input (trim, lowercase, hapus zero-width/control characters)
+- `parseAffirmativeNegativeIntent()` - Mapping sinonim jawaban dengan toleransi punctuation ringan dan frasa singkat (contoh: `ya.`, `ya kak`, `ok ya`)
+- `parseNumericSelectionIntent()` - Parser numerik eksplisit yang bisa membedakan single-select vs multi-select
+- `parseNumericOptionIntent()` - Wrapper kompatibilitas untuk pilihan numerik single (`1..n`)
 - `isDebouncedRepeatedInput()` - Debounce input invalid berulang pada step yang sama (default 2.5 detik)
 - `getIntentParserHint()` - Format pesan invalid yang menampilkan menu aktif + contoh jawaban
 
@@ -69,11 +71,26 @@ Display formatting utilities:
 ### Input Intent & Debounce Behavior
 
 - Step `tanyaUpdateMyData`, `confirmBindUser`, dan `confirmBindUpdate` menggunakan parser intent agar sinonim jawaban tetap diterima.
-- Step `updateAskField` menggunakan parser pilihan numerik (`1..n`) agar validasi tidak tergantung regex mentah.
+- Step `updateAskField` menggunakan parser pilihan numerik (`1..n`) dengan deteksi multi-select eksplisit.
+- Bila user mengirim multi-select pada step yang tidak mendukung batch (contoh: `4,5,6` saat memilih field update), sistem mengirim respons edukatif: **"saat ini pilih satu dulu, nanti ditanya lagi"**.
+- Pada `updateAskField`, tersedia fallback navigasi: user dapat ketik **menu** untuk menampilkan ulang daftar field.
 - Saat input tidak cocok dengan step aktif, sistem merespons dengan:
   - informasi **menu aktif saat ini**, dan
   - contoh format jawaban singkat yang diharapkan.
 - Untuk mencegah spam balasan invalid, input teks invalid yang sama pada step yang sama akan di-debounce selama ~2-3 detik.
+- Untuk mencegah user terjebak, `updateAskField` memiliki retry limit. Setelah beberapa kali gagal, bot akan mengarahkan user untuk ketik **menu** dan menampilkan ulang daftar field.
+
+### Contoh Input Parser (Diterima vs Ditolak)
+
+#### Afirmasi/Negasi
+- ✅ Diterima sebagai afirmasi: `ya`, `ya.`, `ya kak`, `ok ya`, `oke`
+- ✅ Diterima sebagai negasi: `tidak`, `ga`, `gak`, `n`
+- ❌ Ditolak: kalimat panjang ambigu yang tidak mengandung intent jelas
+
+#### Pilihan Angka Step `updateAskField`
+- ✅ Diterima: `4`, `pilih 4`, `4.`
+- ⚠️ Ditangani edukatif (bukan error hard): `4,5,6` → diarahkan pilih satu dulu
+- ❌ Ditolak: `0`, `99`, `abc`
 
 ### Flow A: Registered User (WhatsApp found in database)
 
