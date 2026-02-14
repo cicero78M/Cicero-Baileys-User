@@ -311,6 +311,33 @@ describe("userMenuHandlers conversational flow", () => {
     );
   });
 
+
+  it("accepts numeric option embedded in text for updateAskField", async () => {
+    const session = { isDitbinmas: false, updateUserId: "123" };
+    const userModel = {
+      findUserById: jest.fn().mockResolvedValue({
+        user_id: "123",
+        tiktok: "03031578",
+      }),
+    };
+
+    await userMenuHandlers.updateAskField(
+      session,
+      chatId,
+      "angka 6",
+      waClient,
+      null,
+      userModel
+    );
+
+    expect(session.updateField).toBe("tiktok");
+    expect(session.step).toBe("updateAskValue");
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("*Update TikTok*")
+    );
+  });
+
   it("shows active menu hint for invalid option in updateAskField", async () => {
     const session = { isDitbinmas: false };
 

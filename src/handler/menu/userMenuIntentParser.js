@@ -24,11 +24,22 @@ export const parseAffirmativeNegativeIntent = (text = "") => {
 export const parseNumericOptionIntent = (text = "", maxOption = 0) => {
   const normalized = normalizeUserMenuText(text);
 
-  if (!/^\d+$/.test(normalized)) {
+  if (!normalized) {
     return null;
   }
 
-  const parsed = Number.parseInt(normalized, 10);
+  let parsed = null;
+
+  if (/^\d+$/.test(normalized)) {
+    parsed = Number.parseInt(normalized, 10);
+  } else {
+    const numericTokens = normalized.match(/\d+/g) || [];
+    if (numericTokens.length !== 1) {
+      return null;
+    }
+    parsed = Number.parseInt(numericTokens[0], 10);
+  }
+
   if (parsed < 1 || parsed > maxOption) {
     return null;
   }
