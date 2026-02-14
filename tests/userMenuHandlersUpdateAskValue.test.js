@@ -162,7 +162,7 @@ describe("userMenuHandlers intent parser integration", () => {
     waClient = { sendMessage: jest.fn().mockResolvedValue() };
   });
 
-  it.each(["ok", "oke"])('accepts synonym %s as affirmative in confirmBindUpdate', async (input) => {
+  it.each(["iya", "ok", "oke"])('accepts synonym %s as affirmative in confirmBindUpdate', async (input) => {
     const session = { updateUserId: "12345", isDitbinmas: false };
     const userModel = {
       updateUserField: jest.fn().mockResolvedValue(),
@@ -179,6 +179,25 @@ describe("userMenuHandlers intent parser integration", () => {
 
     expect(userModel.updateUserField).toHaveBeenCalledWith("12345", "whatsapp", "628111222333");
     expect(session.step).toBe("updateAskField");
+  });
+
+  it.each(["ga", "gak", "tidak"])('accepts synonym %s as negative in confirmBindUpdate', async (input) => {
+    const session = { updateUserId: "12345" };
+
+    await userMenuHandlers.confirmBindUpdate(
+      session,
+      chatId,
+      input,
+      waClient,
+      null,
+      {}
+    );
+
+    expect(session.exit).toBe(true);
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("Proses dibatalkan")
+    );
   });
 
   it("debounces repeated invalid input in confirmBindUpdate", async () => {

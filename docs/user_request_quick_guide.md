@@ -63,6 +63,8 @@ Langkah 4: Input Nilai Baru
       ✅ Selesai!
 ```
 
+> ℹ️ **Catatan intent konfirmasi:** di semua langkah konfirmasi, sistem menerima sinonim afirmatif/negatif seperti `iya`, `ok`, `ga`, `gak`, dan `tidak` (selain `ya`/`tidak`). Jika format tidak dikenali, bot akan memberi hint format jawaban yang konsisten.
+
 ---
 
 ## ⏱️ Waktu Sesi

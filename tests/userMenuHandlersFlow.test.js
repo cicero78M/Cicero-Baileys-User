@@ -109,8 +109,43 @@ describe("userMenuHandlers conversational flow", () => {
 
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      expect.stringContaining("*batal* untuk menutup sesi.")
+      expect.stringContaining("Menu aktif saat ini: *Konfirmasi identitas data pengguna*")
     );
+  });
+
+  it.each(["iya", "ok"])('accepts synonym %s as affirmative in confirmUserByWaIdentity', async (input) => {
+    const session = {};
+
+    await userMenuHandlers.confirmUserByWaIdentity(
+      session,
+      chatId,
+      input,
+      waClient,
+      null,
+      null
+    );
+
+    expect(session.step).toBe("tanyaUpdateMyData");
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("Identitas berhasil dikonfirmasi")
+    );
+  });
+
+  it.each(["ga", "gak", "tidak"])('accepts synonym %s as negative in confirmUserByWaIdentity', async (input) => {
+    const session = {};
+
+    await userMenuHandlers.confirmUserByWaIdentity(
+      session,
+      chatId,
+      input,
+      waClient,
+      null,
+      null
+    );
+
+    expect(session.exit).toBe(true);
+    expect(waClient.sendMessage).toHaveBeenCalledWith(chatId, SESSION_CLOSED_MESSAGE);
   });
 
   it("handles batal in confirmUserByWaUpdate", async () => {
@@ -146,8 +181,44 @@ describe("userMenuHandlers conversational flow", () => {
 
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      expect.stringContaining("*batal* untuk menutup sesi.")
+      expect.stringContaining("Menu aktif saat ini: *Konfirmasi lanjut ke menu update field*")
     );
+  });
+
+  it.each(["iya", "ok"])('accepts synonym %s as affirmative in confirmUserByWaUpdate', async (input) => {
+    const session = { user_id: "123", isDitbinmas: false };
+
+    await userMenuHandlers.confirmUserByWaUpdate(
+      session,
+      chatId,
+      input,
+      waClient,
+      null,
+      null
+    );
+
+    expect(session.step).toBe("updateAskField");
+    expect(session.updateUserId).toBe("123");
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("Pilih Field yang Ingin Diupdate")
+    );
+  });
+
+  it.each(["ga", "gak", "tidak"])('accepts synonym %s as negative in confirmUserByWaUpdate', async (input) => {
+    const session = {};
+
+    await userMenuHandlers.confirmUserByWaUpdate(
+      session,
+      chatId,
+      input,
+      waClient,
+      null,
+      null
+    );
+
+    expect(session.exit).toBe(true);
+    expect(waClient.sendMessage).toHaveBeenCalledWith(chatId, SESSION_CLOSED_MESSAGE);
   });
 
   it("keeps session active after inputUserId receives unknown NRP", async () => {

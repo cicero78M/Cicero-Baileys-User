@@ -173,14 +173,16 @@ export const userMenuHandlers = {
 
   // --- Konfirmasi identitas (lihat data)
   confirmUserByWaIdentity: async (session, chatId, text, waClient, pool, userModel) => {
-    const answer = text.trim().toLowerCase();
+    const answer = normalizeUserMenuText(text);
     
     // If user sends empty message, stay silent to avoid confusion
     if (!answer) {
       return;
     }
     
-    if (answer === "ya") {
+    const intent = parseAffirmativeNegativeIntent(answer);
+
+    if (intent === "affirmative") {
       session.identityConfirmed = true;
       setUserMenuStep(session, "tanyaUpdateMyData");
       await waClient.sendMessage(
@@ -192,39 +194,47 @@ export const userMenuHandlers = {
           "Balas *ya* untuk update data atau *tidak* untuk keluar.",
         ].join("\n")
       );
-    } else if (answer === "tidak" || answer === "batal") {
+    } else if (intent === "negative" || answer === "batal") {
       await closeSession(session, chatId, waClient);
     } else {
-      await waClient.sendMessage(
-        chatId,
-        "❌ Jawaban tidak dikenali.\n\nBalas *ya* jika data benar milik Anda, *tidak* jika bukan, atau *batal* untuk menutup sesi."
-      );
+      if (isDebouncedRepeatedInput(session, "confirmUserByWaIdentity", answer)) {
+        return;
+      }
+      await waClient.sendMessage(chatId, getIntentParserHint({
+        step: "Konfirmasi identitas data pengguna",
+        example: "ya / tidak",
+      }));
     }
   },
 
   // --- Konfirmasi identitas untuk update data
   confirmUserByWaUpdate: async (session, chatId, text, waClient, pool, userModel) => {
-    const answer = text.trim().toLowerCase();
+    const answer = normalizeUserMenuText(text);
     
     // If user sends empty message, stay silent to avoid confusion
     if (!answer) {
       return;
     }
     
-    if (answer === "ya") {
+    const intent = parseAffirmativeNegativeIntent(answer);
+
+    if (intent === "affirmative") {
       session.identityConfirmed = true;
       session.updateUserId = session.user_id;
       setUserMenuStep(session, "updateAskField");
       await waClient.sendMessage(chatId, formatFieldList(session.isDitbinmas));
       return;
-    } else if (answer === "tidak" || answer === "batal") {
+    } else if (intent === "negative" || answer === "batal") {
       await closeSession(session, chatId, waClient);
       return;
     }
-    await waClient.sendMessage(
-      chatId,
-      "❌ Jawaban tidak dikenali.\n\nBalas *ya* untuk melanjutkan atau *batal* untuk menutup sesi."
-    );
+    if (isDebouncedRepeatedInput(session, "confirmUserByWaUpdate", answer)) {
+      return;
+    }
+    await waClient.sendMessage(chatId, getIntentParserHint({
+      step: "Konfirmasi lanjut ke menu update field",
+      example: "ya / tidak",
+    }));
   },
 
   // --- Input User ID manual
