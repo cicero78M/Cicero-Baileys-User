@@ -711,7 +711,7 @@ export const userMenuHandlers = {
       // Format display value
       const committedValue = session.lastProcessedInput?.value ?? value;
       const displayValue = (dbField === "insta" || dbField === "tiktok")
-        ? `@${committedValue}`
+        ? `@${String(committedValue).replace(/^@/, '')}`
         : committedValue;
       const fieldDisplayName = getFieldDisplayName(dbField);
       
