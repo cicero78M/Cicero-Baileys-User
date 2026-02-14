@@ -233,3 +233,26 @@ All code review feedback addressed:
 ---
 
 **Status:** ✅ COMPLETE - Ready for production deployment
+
+
+## Additional Workflow Clarity Improvement (Field Selection)
+
+### User confusion observed
+In real chat logs, users replied with variations like `6`, `1..6`, and `angka 6` when asked to pick update fields.
+Strict numeric parsing caused repeated "Input tidak sesuai langkah saat ini" responses even when user intent was clear.
+
+### Improvement implemented
+**File:** `src/handler/menu/userMenuIntentParser.js`
+
+`parseNumericOptionIntent()` now supports a single numeric token embedded in short text (for example: `angka 6`, `pilih 2`).
+Rules:
+- Pure digits still work as before (`6`)
+- One embedded number is accepted (`angka 6`)
+- Ambiguous multi-number inputs remain invalid (`1..6`)
+
+This keeps validation safe while reducing friction for natural user replies.
+
+### Expected UX impact
+- Fewer false-invalid responses on the "Pilih Field yang Ingin Diupdate" step
+- Faster completion for users who type conversationally
+- Clear rejection preserved for ambiguous ranges such as `1..6`
