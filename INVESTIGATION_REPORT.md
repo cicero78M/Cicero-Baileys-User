@@ -94,6 +94,29 @@ Additional observations:
 
 ---
 
+
+## WA Concurrency & Idempotency Policy (Update)
+
+Untuk mencegah race condition saat adapter melakukan replay event pesan yang sama, policy berikut diterapkan pada alur `createHandleMessage` di `src/service/waService.js`:
+
+1. **Single lock boundary per `chatId` untuk seluruh decision tree**
+   - `acquireProcessingLock(chatId)` sekarang berada di boundary luar, membungkus seluruh eksekusi decision tree pesan.
+   - Semua cabang (`userMenuContext`, linking session, update username, dan fallback) diproses serial dengan lock yang sama.
+
+2. **Idempotency guard per step**
+   - Guard berbasis kombinasi `chatId + messageId + flowId + activeStep + stepVersion + decisionPath`.
+   - Replay untuk kombinasi step yang sama akan di-skip agar side effect tidak dieksekusi ulang (khususnya update DB dan pesan sukses).
+   - State guard memakai TTL agar memori tetap bounded.
+
+3. **Structured logging untuk investigasi cepat**
+   - Log `message_decision_start` dan `message_decision_complete` berisi: `chatId/jid`, `messageId`, `flowId`, `activeStep`, `stepVersion`, `decisionPath`.
+   - Replay idempotency juga dicatat lewat event `idempotency_replay_skipped`.
+
+4. **Step version awareness**
+   - Flow yang punya multi-step mutable state (linking dan update username) membawa `stepVersion` untuk membedakan step transition terhadap pesan replay/stale.
+
+Policy ini menjadi baseline concurrency WA agar side effect tetap **at-most-once per step context** meskipun terjadi duplicate delivery dari adapter.
+
 ## Technical Details
 
 ### Root Cause: Memory Leak

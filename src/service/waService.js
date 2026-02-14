@@ -136,6 +136,8 @@ const userMenuFlowId = "user_menu_v2";
 const legacyBindFlowEnabled = env.WA_ENABLE_LEGACY_BIND_FLOW === true;
 const LOG_RATE_LIMIT_WINDOW_MS = 60000;
 const rateLimitedLogState = new Map();
+const IDEMPOTENCY_GUARD_TTL_MS = 10 * 60 * 1000;
+const stepIdempotencyState = new Map();
 
 function ensureUserMenuFlowSession(chatId) {
   userMenuContext[chatId] = userMenuContext[chatId] || {};
@@ -195,6 +197,54 @@ function writeRateLimitedWaWarn(rateKey, payload) {
   }
   rateLimitedLogState.set(rateKey, now);
   writeWaStructuredLog("warn", payload);
+}
+
+function buildStepIdempotencyKey({
+  chatId,
+  messageId,
+  flowId,
+  activeStep,
+  stepVersion,
+  decisionPath,
+}) {
+  if (!chatId || !messageId) {
+    return null;
+  }
+
+  return [
+    chatId,
+    messageId,
+    flowId || "unknown_flow",
+    activeStep || "unknown_step",
+    Number.isFinite(stepVersion) ? stepVersion : 0,
+    decisionPath || "unknown_path",
+  ].join("::");
+}
+
+function cleanupExpiredStepIdempotencyState() {
+  const now = Date.now();
+  for (const [key, state] of stepIdempotencyState.entries()) {
+    if (!state || now - state.createdAt > IDEMPOTENCY_GUARD_TTL_MS) {
+      stepIdempotencyState.delete(key);
+    }
+  }
+}
+
+function checkAndMarkStepIdempotency(params) {
+  cleanupExpiredStepIdempotencyState();
+  const key = buildStepIdempotencyKey(params);
+  if (!key) {
+    return { isReplay: false, key: null };
+  }
+
+  if (stepIdempotencyState.has(key)) {
+    return { isReplay: true, key };
+  }
+
+  stepIdempotencyState.set(key, {
+    createdAt: Date.now(),
+  });
+  return { isReplay: false, key };
 }
 
 const messageQueues = new WeakMap();
@@ -1799,7 +1849,9 @@ export function createHandleMessage(waClient, options = {}) {
   return async function handleMessage(msg) {
     const chatId = msg.from;
     const text = (msg.body || "").trim();
+    const messageId = msg?.id?._serialized || msg?.id?.id || null;
     const userWaNum = chatId.replace(/[^0-9]/g, "");
+    let decisionPath = "fallback";
     const initialIsMyContact =
       typeof msg.isMyContact === "boolean" ? msg.isMyContact : null;
     const isGroupChat = chatId?.endsWith("@g.us");
@@ -1849,6 +1901,41 @@ export function createHandleMessage(waClient, options = {}) {
 
     // ===== Deklarasi State dan Konstanta =====
     let session = getSession(chatId);
+
+    const getFlowContext = () => {
+      if (userMenuContext[chatId]) {
+        const active = userMenuContext[chatId];
+        return {
+          flowId: active.flow || userMenuFlowId,
+          activeStep: active.step || "unknown",
+          stepVersion: Number.isFinite(active.stepVersion) ? active.stepVersion : 0,
+        };
+      }
+
+      if (updateUsernameSession[chatId]) {
+        const active = updateUsernameSession[chatId];
+        return {
+          flowId: "update_username_flow",
+          activeStep: active.step || "unknown",
+          stepVersion: Number.isFinite(active.stepVersion) ? active.stepVersion : 0,
+        };
+      }
+
+      if (userRequestLinkSessions[chatId]) {
+        const active = userRequestLinkSessions[chatId];
+        return {
+          flowId: "linking_flow",
+          activeStep: active.step || "selection",
+          stepVersion: Number.isFinite(active.stepVersion) ? active.stepVersion : 0,
+        };
+      }
+
+      return {
+        flowId: "fallback_flow",
+        activeStep: session?.step || "entry",
+        stepVersion: Number.isFinite(session?.stepVersion) ? session.stepVersion : 0,
+      };
+    };
 
     if (isGroupChat) {
       const handledGroupComplaint = await handleComplaintMessageIfApplicable({
@@ -1982,6 +2069,46 @@ export function createHandleMessage(waClient, options = {}) {
       mutualReminderResult = result;
       mutualReminderComputed = true;
       return mutualReminderResult;
+    };
+
+    const ensureStepVersion = (scope) => {
+      const target = scope?.[chatId];
+      if (!target || Number.isFinite(target.stepVersion)) {
+        return;
+      }
+      target.stepVersion = 0;
+    };
+
+    const handleStepReplayGuard = async ({ flowId, activeStep, stepVersion }) => {
+      const replayCheck = checkAndMarkStepIdempotency({
+        chatId,
+        messageId,
+        flowId,
+        activeStep,
+        stepVersion,
+        decisionPath,
+      });
+
+      if (!replayCheck.isReplay) {
+        return false;
+      }
+
+      writeWaStructuredLog(
+        "warn",
+        buildWaStructuredLog({
+          label: "WA-CONCURRENCY",
+          event: "idempotency_replay_skipped",
+          jid: chatId,
+          messageId,
+          flowId,
+          activeStep,
+          stepVersion,
+          decisionPath,
+          idempotencyKey: replayCheck.key,
+        })
+      );
+
+      return true;
     };
 
     const processMessage = async () => {
@@ -2169,6 +2296,8 @@ export function createHandleMessage(waClient, options = {}) {
           newValue: extracted.storeValue,
           newDisplay: extracted.display,
           previousDisplay: storedDisplay,
+          step: "selection",
+          stepVersion: 0,
         };
         setUserRequestLinkTimeout(chatId);
         await waClient.sendMessage(chatId, lines.join("\n"));
@@ -2238,6 +2367,17 @@ export function createHandleMessage(waClient, options = {}) {
 
     if (allowUserMenu && userRequestLinkSessions[chatId]) {
       const selection = userRequestLinkSessions[chatId];
+      ensureStepVersion(userRequestLinkSessions);
+      decisionPath = "linking";
+      if (
+        await handleStepReplayGuard({
+          flowId: "linking_flow",
+          activeStep: selection?.step || "selection",
+          stepVersion: Number.isFinite(selection?.stepVersion) ? selection.stepVersion : 0,
+        })
+      ) {
+        return;
+      }
       if (lowerText === "batal") {
         await waClient.sendMessage(
           chatId,
@@ -2732,16 +2872,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         delete userMenuContext[chatId];
         return;
       }
-
       const userMenuSnapshot = createUserMenuStepSnapshot(userMenuContext[chatId]);
-
-      // Acquire lock to prevent concurrent processing for the same chatId
-      const releaseLock = await acquireProcessingLock(chatId, {
-        scope: "userMenuContext",
-        step: userMenuContext[chatId]?.step || "unknown",
-      });
-
-      try {
         // Verify session still exists after acquiring lock (could have been deleted while waiting)
         if (!userMenuContext[chatId]) {
           return;
@@ -2765,6 +2896,16 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         const latestStepVersion = Number.isFinite(session.stepVersion)
           ? session.stepVersion
           : 0;
+        decisionPath = "userMenuContext";
+        if (
+          await handleStepReplayGuard({
+            flowId: session.flow || userMenuFlowId,
+            activeStep: session.step || "unknown",
+            stepVersion: latestStepVersion,
+          })
+        ) {
+          return;
+        }
         if (
           shouldDropStaleUserMenuInput({
             snapshot: userMenuSnapshot,
@@ -2814,10 +2955,6 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
           clearTimeout(session.noReplyTimeout);
           delete userMenuContext[chatId];
         }
-      } finally {
-        // Always release the lock when done
-        releaseLock();
-      }
       return;
     }
 
@@ -2997,6 +3134,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
     updateUsernameSession[chatId] = {
       link: text.trim(),
       step: "confirm",
+      stepVersion: 0,
     };
     await waClient.sendMessage(
       chatId,
@@ -3010,6 +3148,19 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
     updateUsernameSession[chatId] &&
     updateUsernameSession[chatId].step === "confirm"
   ) {
+    ensureStepVersion(updateUsernameSession);
+    decisionPath = "update_username";
+    if (
+      await handleStepReplayGuard({
+        flowId: "update_username_flow",
+        activeStep: "confirm",
+        stepVersion: Number.isFinite(updateUsernameSession[chatId]?.stepVersion)
+          ? updateUsernameSession[chatId].stepVersion
+          : 0,
+      })
+    ) {
+      return;
+    }
     const jawaban = text.trim().toLowerCase();
     if (["tidak", "batal", "no", "cancel"].includes(jawaban)) {
       delete updateUsernameSession[chatId];
@@ -3060,6 +3211,10 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       return;
     } else {
       updateUsernameSession[chatId].step = "ask_nrp";
+      updateUsernameSession[chatId].stepVersion =
+        (Number.isFinite(updateUsernameSession[chatId].stepVersion)
+          ? updateUsernameSession[chatId].stepVersion
+          : 0) + 1;
       updateUsernameSession[chatId].username = username;
       updateUsernameSession[chatId].field = field;
       await waClient.sendMessage(
@@ -3075,6 +3230,19 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
     updateUsernameSession[chatId] &&
     updateUsernameSession[chatId].step === "ask_nrp"
   ) {
+    ensureStepVersion(updateUsernameSession);
+    decisionPath = "update_username";
+    if (
+      await handleStepReplayGuard({
+        flowId: "update_username_flow",
+        activeStep: "ask_nrp",
+        stepVersion: Number.isFinite(updateUsernameSession[chatId]?.stepVersion)
+          ? updateUsernameSession[chatId].stepVersion
+          : 0,
+      })
+    ) {
+      return;
+    }
     const nrp = text.replace(/[^0-9a-zA-Z]/g, "");
     if (!nrp) {
       await waClient.sendMessage(
@@ -4219,6 +4387,17 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
   }
 
   // ========== Fallback Handler ==========
+  decisionPath = "fallback";
+  const fallbackContext = getFlowContext();
+  if (
+    await handleStepReplayGuard({
+      flowId: fallbackContext.flowId,
+      activeStep: fallbackContext.activeStep,
+      stepVersion: fallbackContext.stepVersion,
+    })
+  ) {
+    return;
+  }
   let clientInfoText = "";
   let operatorRow = null;
   let superAdminRow = null;
@@ -4301,14 +4480,56 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
     return;
   }
 
+  decisionPath = "fallback";
   await startUserMenuSession();
   console.log(`${clientLabel} Message from ${chatId} routed to ${userMenuFlowId} fallback`);
   return;
     };
 
+    const preLockContext = getFlowContext();
+    const releaseLock = await acquireProcessingLock(chatId, {
+      scope: "message_decision_tree",
+      flowId: preLockContext.flowId,
+      step: preLockContext.activeStep,
+      stepVersion: preLockContext.stepVersion,
+      messageId,
+    });
+
     try {
+      const flowContext = getFlowContext();
+      writeWaStructuredLog(
+        "info",
+        buildWaStructuredLog({
+          label: "WA-CONCURRENCY",
+          event: "message_decision_start",
+          jid: chatId,
+          messageId,
+          flowId: flowContext.flowId,
+          activeStep: flowContext.activeStep,
+          stepVersion: flowContext.stepVersion,
+          decisionPath,
+        })
+      );
+
       await processMessage();
     } finally {
+      releaseLock();
+
+      const postFlowContext = getFlowContext();
+      writeWaStructuredLog(
+        "info",
+        buildWaStructuredLog({
+          label: "WA-CONCURRENCY",
+          event: "message_decision_complete",
+          jid: chatId,
+          messageId,
+          flowId: postFlowContext.flowId,
+          activeStep: postFlowContext.activeStep,
+          stepVersion: postFlowContext.stepVersion,
+          decisionPath,
+        })
+      );
+
       if (allowUserMenu) {
         const reminder = await computeMutualReminder();
         const hasSessionNow = hasAnySession();
