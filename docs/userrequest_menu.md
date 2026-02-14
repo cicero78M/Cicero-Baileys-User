@@ -74,6 +74,7 @@ Display formatting utilities:
 - Step `updateAskField` menggunakan parser pilihan numerik (`1..n`) dengan deteksi multi-select eksplisit.
 - Bila user mengirim multi-select pada step yang tidak mendukung batch (contoh: `4,5,6` saat memilih field update), sistem mengirim respons edukatif: **"saat ini pilih satu dulu, nanti ditanya lagi"**.
 - Pada `updateAskField`, tersedia fallback navigasi: user dapat ketik **menu** untuk menampilkan ulang daftar field.
+- Pada `updateAskValue`, user juga bisa ketik **menu**, **kembali**, atau **back** untuk kembali ke daftar field tanpa keluar sesi update.
 - Saat input tidak cocok dengan step aktif, sistem merespons dengan fallback hint yang seragam via `getIntentParserHint()`, berisi:
   - informasi **menu aktif saat ini**, dan
   - contoh format jawaban singkat yang diharapkan.
@@ -109,9 +110,9 @@ Display formatting utilities:
    ↓
 6. User selects field (e.g., "2" for Pangkat)
    ↓
-7. System shows current value + input prompt
+7. System shows current value + input prompt (termasuk petunjuk: ketik *menu* untuk kembali ke daftar field)
    ↓
-8. User enters new value
+8. User enters new value atau ketik menu/kembali/back untuk ganti field
    ↓
 9. System validates and updates
    ↓

@@ -2,6 +2,7 @@ import { jest } from "@jest/globals";
 
 process.env.JWT_SECRET = "testsecret";
 import { userMenuHandlers } from "../src/handler/menu/userMenuHandlers.js";
+import { formatFieldUpdatePrompt } from "../src/handler/menu/userMenuHelpers.js";
 
 describe("userMenuHandlers.updateAskValue social media normalization", () => {
   const chatId = "628111222333@c.us";
@@ -154,6 +155,53 @@ describe("userMenuHandlers.updateAskValue social media normalization", () => {
 });
 
 
+describe("userMenuHandlers.updateAskValue field navigation", () => {
+  const chatId = "628111222333@c.us";
+  let waClient;
+
+  beforeEach(() => {
+    waClient = { sendMessage: jest.fn().mockResolvedValue() };
+  });
+
+  it.each(["menu", "kembali", "back"])(
+    "returns to field menu when user sends %s while updating value",
+    async (input) => {
+      const session = {
+        updateUserId: "12345",
+        updateField: "pangkat",
+        isDitbinmas: true,
+        availableTitles: ["AKP", "IPDA"],
+        availableSatfung: ["BINMAS"],
+        updateAskFieldRetry: 2,
+      };
+      const userModel = {
+        updateUserField: jest.fn().mockResolvedValue(),
+      };
+
+      await userMenuHandlers.updateAskValue(
+        session,
+        chatId,
+        input,
+        waClient,
+        null,
+        userModel
+      );
+
+      expect(session.step).toBe("updateAskField");
+      expect(session.updateField).toBeUndefined();
+      expect(session.availableTitles).toBeUndefined();
+      expect(session.availableSatfung).toBeUndefined();
+      expect(session.updateAskFieldRetry).toBe(0);
+      expect(userModel.updateUserField).not.toHaveBeenCalled();
+      expect(waClient.sendMessage).toHaveBeenCalledWith(
+        chatId,
+        expect.stringContaining("Pilih Field yang Ingin Diupdate")
+      );
+    }
+  );
+});
+
+
 describe("userMenuHandlers intent parser integration", () => {
   const chatId = "628111222333@c.us";
   let waClient;
@@ -211,5 +259,14 @@ describe("userMenuHandlers intent parser integration", () => {
       chatId,
       expect.stringContaining("Menu aktif saat ini: *Konfirmasi update nomor WhatsApp*")
     );
+  });
+});
+
+
+describe("formatFieldUpdatePrompt", () => {
+  it("shows explicit menu instruction to return to field list", () => {
+    const prompt = formatFieldUpdatePrompt("nama", "Nama", "BUDI");
+
+    expect(prompt).toContain("Ketik *menu* untuk kembali ke daftar field");
   });
 });
