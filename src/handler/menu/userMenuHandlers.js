@@ -36,6 +36,9 @@ export const SESSION_CLOSED_MESSAGE =
   "Terima kasih. Sesi ditutup. Ketik *userrequest* untuk memulai lagi.";
 
 const UPDATE_ASK_FIELD_MAX_RETRY = 3;
+const REPEATED_INVALID_INPUT_FEEDBACK =
+  "⏳ Input sama terdeteksi, mohon tunggu respon sebelumnya atau ketik *menu*.";
+const REPEATED_INVALID_INPUT_FEEDBACK_COOLDOWN_MS = 2500;
 
 const getMenuRetryFallbackMessage = (maxOption) =>
   [
@@ -52,6 +55,35 @@ const incrementUpdateAskFieldRetry = (session) => {
 
 const resetUpdateAskFieldRetry = (session) => {
   session.updateAskFieldRetry = 0;
+};
+
+const shouldSendRepeatedInputFeedback = (
+  session,
+  step,
+  cooldownMs = REPEATED_INVALID_INPUT_FEEDBACK_COOLDOWN_MS
+) => {
+  if (!session || !step) {
+    return false;
+  }
+
+  const now = Date.now();
+  const feedbackMeta = session.repeatedInvalidFeedbackMeta || {};
+  const previousTimestamp = feedbackMeta[step] || 0;
+  if (now - previousTimestamp < cooldownMs) {
+    return false;
+  }
+
+  feedbackMeta[step] = now;
+  session.repeatedInvalidFeedbackMeta = feedbackMeta;
+  return true;
+};
+
+const sendRepeatedInvalidInputFeedback = async (session, step, chatId, waClient) => {
+  if (!waClient || !shouldSendRepeatedInputFeedback(session, step)) {
+    return;
+  }
+
+  await waClient.sendMessage(chatId, REPEATED_INVALID_INPUT_FEEDBACK);
 };
 
 export const closeSession = async (
@@ -460,6 +492,12 @@ export const userMenuHandlers = {
 
     if (selectionIntent.type !== "single") {
       if (isDebouncedRepeatedInput(session, "updateAskField", lower)) {
+        await sendRepeatedInvalidInputFeedback(
+          session,
+          "updateAskField",
+          chatId,
+          waClient
+        );
         return;
       }
       const retryCount = incrementUpdateAskFieldRetry(session);
@@ -681,6 +719,12 @@ export const userMenuHandlers = {
       return;
     }
     if (isDebouncedRepeatedInput(session, "tanyaUpdateMyData", answer)) {
+      await sendRepeatedInvalidInputFeedback(
+        session,
+        "tanyaUpdateMyData",
+        chatId,
+        waClient
+      );
       return;
     }
     await waClient.sendMessage(chatId, getIntentParserHint({

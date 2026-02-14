@@ -298,16 +298,42 @@ describe("userMenuHandlers conversational flow", () => {
     expect(waClient.sendMessage).toHaveBeenCalledWith(chatId, SESSION_CLOSED_MESSAGE);
   });
 
-  it("debounces repeated invalid input in tanyaUpdateMyData", async () => {
+  it("debounces repeated invalid input in tanyaUpdateMyData and sends brief feedback once", async () => {
     const session = {};
 
     await userMenuHandlers.tanyaUpdateMyData(session, chatId, "mungkin", waClient, null, null);
     await userMenuHandlers.tanyaUpdateMyData(session, chatId, "mungkin", waClient, null, null);
+    await userMenuHandlers.tanyaUpdateMyData(session, chatId, "mungkin", waClient, null, null);
 
-    expect(waClient.sendMessage).toHaveBeenCalledTimes(1);
-    expect(waClient.sendMessage).toHaveBeenCalledWith(
+    expect(waClient.sendMessage).toHaveBeenCalledTimes(2);
+    expect(waClient.sendMessage).toHaveBeenNthCalledWith(
+      1,
       chatId,
       expect.stringContaining("Menu aktif saat ini")
+    );
+    expect(waClient.sendMessage).toHaveBeenNthCalledWith(
+      2,
+      chatId,
+      expect.stringContaining("Input sama terdeteksi")
+    );
+  });
+
+  it("sends brief repeated-input feedback for updateAskField without affecting valid path", async () => {
+    const session = { isDitbinmas: false };
+
+    await userMenuHandlers.updateAskField(session, chatId, "abc", waClient, null, null);
+    await userMenuHandlers.updateAskField(session, chatId, "abc", waClient, null, null);
+
+    expect(waClient.sendMessage).toHaveBeenCalledTimes(2);
+    expect(waClient.sendMessage).toHaveBeenNthCalledWith(
+      1,
+      chatId,
+      expect.stringContaining("Menu aktif saat ini")
+    );
+    expect(waClient.sendMessage).toHaveBeenNthCalledWith(
+      2,
+      chatId,
+      expect.stringContaining("Input sama terdeteksi")
     );
   });
 
