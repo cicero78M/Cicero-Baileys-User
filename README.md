@@ -370,6 +370,21 @@ WhatsApp runtime now starts one client instance from `waService.js`: `waUserClie
 - Readiness checks now fokus ke satu runtime client (`waUserClient`/`waClient`) dan dipakai sebagai guard sebelum eksekusi alur yang memerlukan koneksi WA.
 - Reconnects are guarded by a shared connect lock: if a client is already initializing, further `connect()` calls (including hard-init retries or disconnect-driven reconnects) will wait for or skip the in-flight promise instead of launching a parallel session. This keeps the default retry timing the same (e.g., 5s reconnect delay, exponential hard-init retry delays) while preventing overlapping initializations.
 
+### WhatsApp User Flow (Single Entry-Point)
+
+Flow user biasa (registrasi, linking WhatsApp, update data, timeout, dan cancel) sekarang dipusatkan melalui **satu entry-point** di `src/service/waService.js`, yaitu `userMenuContext` + `userMenuHandlers`.
+
+- Semua session user menu diberi penanda `session.flow = "user_menu_v2"` dan hanya diproses jika `flow` sesuai.
+- Incoming message yang membawa session tanpa `flow` yang cocok tidak diproses oleh handler user menu, untuk mencegah tabrakan antar flow.
+- Keputusan initial start/resume untuk user menu memakai state session persisten (`hasAnySession`, status link WA, cooldown timeout), bukan flag “first time in-memory”.
+- Jalur legacy `knownUserSet` + `waBindSessions` tidak lagi dipakai untuk user flow umum; jika dibutuhkan untuk skenario khusus, aktifkan terpisah dengan guard eksplisit (`WA_ENABLE_LEGACY_BIND_FLOW`) dan jangan campur dengan `user_menu_v2`.
+
+Transisi ringkas:
+1. User kirim `userrequest` / trigger auto-start → inisialisasi `userMenuContext` ber-`flow` `user_menu_v2`.
+2. `userMenuHandlers` memproses step aktif (`inputUserId`, confirm update, dst) dalam lock per-chat.
+3. `batal`, timeout, atau `exit` akan membersihkan context + timeout dan mengakhiri session.
+4. Pesan fallback user diarahkan kembali ke entry-point yang sama (`user_menu_v2`) agar alur tetap tunggal.
+
 - `src/cron/cronDirRequestFetchSosmed.js` now runs as a standalone cron in the `always` manifest bucket and fires every 30 minutes from **06:00–22:00** (Asia/Jakarta), so it does not wait for any WhatsApp gateway/user readiness before refreshing Ditbinmas Instagram/TikTok data and broadcasting deltas when available.
 
 - The Instagram laphar cron (`cronInstaLaphar.js`) has been retired and removed from the manifest and seed data. New deployments will no longer register or seed this job; existing environments can safely drop its `cron_job_config` row if present.

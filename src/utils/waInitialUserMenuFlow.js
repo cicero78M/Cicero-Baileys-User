@@ -6,7 +6,6 @@ export function resolveInitialUserMenuFlow({
   lowerText,
   originalText,
   hasAnySession,
-  hadSessionAtStart,
   isInTimeoutCooldown,
   isLinked,
 }) {
@@ -14,8 +13,7 @@ export function resolveInitialUserMenuFlow({
     return { shouldEvaluate: false, shouldAutoStart: false, useDirectNrpInput: false };
   }
 
-  const isInitialMessage = !hasAnySession && !hadSessionAtStart;
-  if (!isInitialMessage || isInTimeoutCooldown) {
+  if (hasAnySession || isInTimeoutCooldown) {
     return { shouldEvaluate: false, shouldAutoStart: false, useDirectNrpInput: false };
   }
 
