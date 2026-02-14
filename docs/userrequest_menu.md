@@ -70,11 +70,11 @@ Display formatting utilities:
 
 ### Input Intent & Debounce Behavior
 
-- Step `tanyaUpdateMyData`, `confirmBindUser`, dan `confirmBindUpdate` menggunakan parser intent agar sinonim jawaban tetap diterima.
+- Semua step konfirmasi biner (`confirmUserByWaIdentity`, `confirmUserByWaUpdate`, `tanyaUpdateMyData`, `confirmBindUser`, dan `confirmBindUpdate`) menggunakan parser intent agar sinonim jawaban tetap diterima.
 - Step `updateAskField` menggunakan parser pilihan numerik (`1..n`) dengan deteksi multi-select eksplisit.
 - Bila user mengirim multi-select pada step yang tidak mendukung batch (contoh: `4,5,6` saat memilih field update), sistem mengirim respons edukatif: **"saat ini pilih satu dulu, nanti ditanya lagi"**.
 - Pada `updateAskField`, tersedia fallback navigasi: user dapat ketik **menu** untuk menampilkan ulang daftar field.
-- Saat input tidak cocok dengan step aktif, sistem merespons dengan:
+- Saat input tidak cocok dengan step aktif, sistem merespons dengan fallback hint yang seragam via `getIntentParserHint()`, berisi:
   - informasi **menu aktif saat ini**, dan
   - contoh format jawaban singkat yang diharapkan.
 - Untuk mencegah spam balasan invalid, input teks invalid yang sama pada step yang sama akan di-debounce selama ~2-3 detik.
@@ -85,7 +85,7 @@ Display formatting utilities:
 ### Contoh Input Parser (Diterima vs Ditolak)
 
 #### Afirmasi/Negasi
-- ✅ Diterima sebagai afirmasi: `ya`, `ya.`, `ya kak`, `ok ya`, `oke`
+- ✅ Diterima sebagai afirmasi: `ya`, `iya`, `ya.`, `ya kak`, `ok`, `ok ya`, `oke`
 - ✅ Diterima sebagai negasi: `tidak`, `ga`, `gak`, `n`
 - ❌ Ditolak: kalimat panjang ambigu yang tidak mengandung intent jelas
 
