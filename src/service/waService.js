@@ -74,14 +74,11 @@ import {
   userMenuContext,
   updateUsernameSession,
   userRequestLinkSessions,
-  knownUserSet,
   setMenuTimeout,
   markUserMenuActivity,
   setUserMenuStep,
   createUserMenuStepSnapshot,
   shouldDropStaleUserMenuInput,
-  waBindSessions,
-  setBindTimeout,
   operatorOptionSessions,
   setOperatorOptionTimeout,
   adminOptionSessions,
@@ -135,8 +132,20 @@ dotenv.config();
 
 const debugLoggingEnabled = process.env.WA_DEBUG_LOGGING === "true";
 const userMenuAutoStartCommandWhitelist = new Set(["userrequest"]);
+const userMenuFlowId = "user_menu_v2";
+const legacyBindFlowEnabled = env.WA_ENABLE_LEGACY_BIND_FLOW === true;
 const LOG_RATE_LIMIT_WINDOW_MS = 60000;
 const rateLimitedLogState = new Map();
+
+function ensureUserMenuFlowSession(chatId) {
+  userMenuContext[chatId] = userMenuContext[chatId] || {};
+  userMenuContext[chatId].flow = userMenuFlowId;
+  return userMenuContext[chatId];
+}
+
+function isUserMenuFlowSession(session) {
+  return session?.flow === userMenuFlowId;
+}
 
 function buildWaStructuredLog({
   clientId = null,
@@ -1863,12 +1872,10 @@ export function createHandleMessage(waClient, options = {}) {
     const hasAnySession = () =>
       Boolean(getSession(chatId)) ||
       Boolean(userMenuContext[chatId]) ||
-      Boolean(waBindSessions[chatId]) ||
       Boolean(updateUsernameSession[chatId]) ||
       Boolean(userRequestLinkSessions[chatId]) ||
       Boolean(operatorOptionSessions[chatId]) ||
       Boolean(adminOptionSessions[chatId]);
-    const hadSessionAtStart = allowUserMenu ? hasAnySession() : false;
     let mutualReminderComputed = false;
     let mutualReminderResult = {
       shouldRemind: false,
@@ -2012,31 +2019,29 @@ export function createHandleMessage(waClient, options = {}) {
         if (!allowUserMenu) {
           return false;
         }
-        if (!userMenuContext[chatId]) {
-          userMenuContext[chatId] = {};
-      }
-      try {
-        await userMenuHandlers.main(
-          userMenuContext[chatId],
-          chatId,
-          "",
-          waClient,
-          pool,
-          userModel
-        );
-        const expectReply = shouldExpectQuickReply(userMenuContext[chatId]);
-        setMenuTimeout(chatId, waClient, expectReply);
-        return true;
-      } catch (err) {
-        console.error(`${clientLabel} user menu start error: ${err.message}`);
-        await safeSendMessage(
-          waClient,
-          chatId,
-          "❌ Gagal memulai menu pengguna. Silakan coba lagi nanti."
-        );
-        return true;
-      }
-    };
+        const flowSession = ensureUserMenuFlowSession(chatId);
+        try {
+          await userMenuHandlers.main(
+            flowSession,
+            chatId,
+            "",
+            waClient,
+            pool,
+            userModel
+          );
+          const expectReply = shouldExpectQuickReply(userMenuContext[chatId]);
+          setMenuTimeout(chatId, waClient, expectReply);
+          return true;
+        } catch (err) {
+          console.error(`${clientLabel} user menu start error: ${err.message}`);
+          await safeSendMessage(
+            waClient,
+            chatId,
+            "❌ Gagal memulai menu pengguna. Silakan coba lagi nanti."
+          );
+          return true;
+        }
+      };
 
       const handleProfileLinkForUserRequest = async () => {
         if (!allowUserMenu) return false;
@@ -2281,13 +2286,16 @@ export function createHandleMessage(waClient, options = {}) {
 
     // =========== Menu User Interaktif ===========
     if (userMenuContext[chatId] && lowerText === "batal") {
-      const session = userMenuContext[chatId];
+      const flowSession = userMenuContext[chatId];
+      if (!isUserMenuFlowSession(flowSession)) {
+        return;
+      }
       // Clear all timeouts
-      if (session.timeout) clearTimeout(session.timeout);
-      if (session.warningTimeout) clearTimeout(session.warningTimeout);
-      if (session.noReplyTimeout) clearTimeout(session.noReplyTimeout);
+      if (flowSession.timeout) clearTimeout(flowSession.timeout);
+      if (flowSession.warningTimeout) clearTimeout(flowSession.warningTimeout);
+      if (flowSession.noReplyTimeout) clearTimeout(flowSession.noReplyTimeout);
       delete userMenuContext[chatId];
-      // Set cooldown to prevent auto-start of bind session after cancellation
+      // Set cooldown to prevent auto-start setelah cancel
       setSessionTimeoutCooldown(chatId);
       if (allowUserMenu) {
         await waClient.sendMessage(chatId, "✅ Menu User ditutup. Terima kasih.");
@@ -2337,10 +2345,9 @@ export function createHandleMessage(waClient, options = {}) {
         const userByWA = await userModel.findUserByWhatsApp(pengirim);
         const salam = getGreeting();
         if (userByWA) {
-          userMenuContext[chatId] = {
-            step: "confirmUserByWaUpdate",
-            user_id: userByWA.user_id,
-          };
+          const flowSession = ensureUserMenuFlowSession(chatId);
+          flowSession.step = "confirmUserByWaUpdate";
+          flowSession.user_id = userByWA.user_id;
           const msg = `${salam}, Bapak/Ibu\n${formatUserSummary(userByWA)}\n\nApakah Anda ingin melakukan perubahan data?\nBalas *ya* untuk memulai update atau *tidak* untuk melewati.`;
           await waClient.sendMessage(chatId, msg.trim());
           setMenuTimeout(
@@ -2349,8 +2356,8 @@ export function createHandleMessage(waClient, options = {}) {
             shouldExpectQuickReply(userMenuContext[chatId])
           );
         } else {
-          userMenuContext[chatId] = {};
-          setUserMenuStep(userMenuContext[chatId], "inputUserId");
+          const flowSession = ensureUserMenuFlowSession(chatId);
+          setUserMenuStep(flowSession, "inputUserId");
           const msg =
             `${salam}! Nomor WhatsApp Anda belum terdaftar.` +
             "\n\nBalas pesan ini dengan memasukan NRP Anda," +
@@ -2404,10 +2411,9 @@ export function createHandleMessage(waClient, options = {}) {
         const userByWA = await userModel.findUserByWhatsApp(pengirim);
         const salam = getGreeting();
         if (userByWA) {
-          userMenuContext[chatId] = {
-            step: "confirmUserByWaUpdate",
-            user_id: userByWA.user_id,
-          };
+          const flowSession = ensureUserMenuFlowSession(chatId);
+          flowSession.step = "confirmUserByWaUpdate";
+          flowSession.user_id = userByWA.user_id;
           const msg = `${salam}, Bapak/Ibu\n${formatUserSummary(userByWA)}\n\nApakah Anda ingin melakukan perubahan data?\nBalas *ya* untuk memulai update atau *tidak* untuk melewati.`;
           await waClient.sendMessage(chatId, msg.trim());
           setMenuTimeout(
@@ -2416,8 +2422,8 @@ export function createHandleMessage(waClient, options = {}) {
             shouldExpectQuickReply(userMenuContext[chatId])
           );
         } else {
-          userMenuContext[chatId] = {};
-      setUserMenuStep(userMenuContext[chatId], "inputUserId");
+          const flowSession = ensureUserMenuFlowSession(chatId);
+          setUserMenuStep(flowSession, "inputUserId");
           const msg =
             `${salam}! Nomor WhatsApp Anda belum terdaftar.` +
             "\n\nBalas pesan ini dengan memasukan NRP Anda," +
@@ -2742,6 +2748,20 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         }
 
         const session = userMenuContext[chatId];
+        if (!isUserMenuFlowSession(session)) {
+          writeWaStructuredLog(
+            "warn",
+            buildWaStructuredLog({
+              label: "WA-USER-MENU",
+              event: "user_menu_flow_mismatch",
+              jid: chatId,
+              flow: session?.flow || null,
+              expectedFlow: userMenuFlowId,
+            })
+          );
+          return;
+        }
+
         const latestStepVersion = Number.isFinite(session.stepVersion)
           ? session.stepVersion
           : 0;
@@ -2830,7 +2850,6 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       lowerText,
       originalText: text,
       hasAnySession: hasAnySession(),
-      hadSessionAtStart,
       isInTimeoutCooldown: isInTimeoutCooldown(chatId),
       isLinked: Boolean(await getUserByWa()),
     });
@@ -2842,13 +2861,13 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       }
 
       if (initialUserMenuFlow.useDirectNrpInput) {
-        userMenuContext[chatId] = userMenuContext[chatId] || {};
-        userMenuContext[chatId].menu = "userrequest";
-        setUserMenuStep(userMenuContext[chatId], "inputUserId");
-        markUserMenuActivity(userMenuContext[chatId]);
+        const flowSession = ensureUserMenuFlowSession(chatId);
+        flowSession.menu = "userrequest";
+        setUserMenuStep(flowSession, "inputUserId");
+        markUserMenuActivity(flowSession);
 
         await userMenuHandlers.inputUserId(
-          userMenuContext[chatId],
+          flowSession,
           chatId,
           text,
           waClient,
@@ -4200,9 +4219,6 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
   }
 
   // ========== Fallback Handler ==========
-  const isFirstTime = !knownUserSet.has(userWaNum);
-  knownUserSet.add(userWaNum);
-
   let clientInfoText = "";
   let operatorRow = null;
   let superAdminRow = null;
@@ -4229,181 +4245,64 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
     clientInfoText = "";
   }
 
-  if (isFirstTime) {
-    if (isAdmin) {
-      adminOptionSessions[chatId] = {};
-      setAdminOptionTimeout(chatId);
-      const salam = getGreeting();
-        await safeSendMessage(
-          waClient,
-          chatId,
-          `${salam}! Nomor ini terdaftar sebagai *admin*.` +
-            "\n1️⃣ Menu Client" +
-            "\n2️⃣ Menu Operator" +
-            "\n3️⃣ Perubahan Data Username" +
-            "\nBalas angka *1*, *2*, atau *3*."
-        );
-      return;
-    }
-    if (!operatorRow && normalizedUserWaId) {
-      superAdminRow = await findBySuperAdmin(normalizedUserWaId);
-    }
-    const accessRow = operatorRow || superAdminRow;
-    if (accessRow) {
-      operatorOptionSessions[chatId] = {};
-      setOperatorOptionTimeout(chatId);
-      const salam = getGreeting();
-      const roleLabel = operatorRow ? "operator" : "super admin";
-      await safeSendMessage(
-        waClient,
-        chatId,
-        `${salam}! Nomor ini terdaftar sebagai *${roleLabel}* untuk client *${
-          accessRow.nama || accessRow.client_id
-        }*.` +
-          "\n1️⃣ Menu Operator" +
-          "\n2️⃣ Perubahan Data Username" +
-          "\nBalas angka *1* atau *2*."
-      );
-      return;
-    }
-    if (!allowUserMenu) {
-      return;
-    }
-    const pengirim = chatId.replace(/[^0-9]/g, "");
-    const userByWA = await userModel.findUserByWhatsApp(pengirim);
+  if (isAdmin) {
+    adminOptionSessions[chatId] = {};
+    setAdminOptionTimeout(chatId);
     const salam = getGreeting();
-    if (userByWA) {
-      userMenuContext[chatId] = {
-        step: "confirmUserByWaUpdate",
-        user_id: userByWA.user_id,
-      };
-      const msg = `${salam}, Bapak/Ibu\n${formatUserSummary(userByWA)}\n\nApakah Anda ingin melakukan perubahan data?\nBalas *ya* untuk memulai update atau *tidak* untuk melewati.`;
-      await safeSendMessage(waClient, chatId, msg.trim());
-      setMenuTimeout(
-        chatId,
-        waClient,
-        shouldExpectQuickReply(userMenuContext[chatId])
-      );
-    } else {
-      userMenuContext[chatId] = {};
-      setUserMenuStep(userMenuContext[chatId], "inputUserId");
-      const msg =
-        `${salam}! Nomor WhatsApp Anda belum terdaftar.` +
-        clientInfoText +
-        "\n\nUntuk menampilkan data Anda, balas dengan NRP (hanya angka)." +
-        "\nKetik *batal* untuk keluar." +
-        "\n\nContoh:\n87020990";
-      await safeSendMessage(waClient, chatId, msg.trim());
-      setMenuTimeout(
-        chatId,
-        waClient,
-        shouldExpectQuickReply(userMenuContext[chatId])
-      );
-    }
+    await safeSendMessage(
+      waClient,
+      chatId,
+      `${salam}! Nomor ini terdaftar sebagai *admin*.` +
+        "\n1️⃣ Menu Client" +
+        "\n2️⃣ Menu Operator" +
+        "\n3️⃣ Perubahan Data Username" +
+        "\nBalas angka *1*, *2*, atau *3*."
+    );
     return;
   }
 
-  // Proses binding WhatsApp jika nomor belum terdaftar
-  const senderWa = chatId.replace(/[^0-9]/g, "");
-  const userByWAExist = await userModel.findUserByWhatsApp(senderWa);
-
-  if (!userByWAExist) {
-    if (!allowUserMenu) {
-      delete waBindSessions[chatId];
-      return;
-    }
-    if (waBindSessions[chatId]) {
-      const session = waBindSessions[chatId];
-      if (session.step === "ask_nrp") {
-        if (text.trim().toLowerCase() === "batal") {
-          delete waBindSessions[chatId];
-          await waClient.sendMessage(chatId, "Proses dibatalkan. Silakan masukkan NRP Anda untuk memulai.");
-          waBindSessions[chatId] = { step: "ask_nrp" };
-          setBindTimeout(chatId);
-          return;
-        }
-        const lower = text.trim().toLowerCase();
-        if (lower === "userrequest") {
-          await waClient.sendMessage(
-            chatId,
-            "Panduan:\n1. Ketik NRP Anda (angka saja) untuk mendaftar." +
-              "\n2. Balas *batal* untuk membatalkan proses."
-          );
-          return;
-        }
-        const nrp = text.trim();
-        if (!/^\d+$/.test(nrp)) {
-          await waClient.sendMessage(
-            chatId,
-            "Balas pesan ini dengan NRP Anda, \n*Contoh Pesan Balasan : 87020990*"
-          );
-          return;
-        }
-        const user = await userModel.findUserById(nrp);
-        if (!user) {
-          await waClient.sendMessage(chatId, `❌ NRP *${nrp}* tidak ditemukan. Jika yakin benar, hubungi Opr CICERO Polres Anda.`);
-          return;
-        }
-        session.step = "confirm";
-        session.user_id = user.user_id;
-        setBindTimeout(chatId);
-        await waClient.sendMessage(
-          chatId,
-          `Apakah Anda ingin menghubungkan nomor WhatsApp ini dengan NRP *${nrp}*?\n` +
-            "Satu username hanya bisa menggunakan satu akun WhatsApp.\n" +
-            "Balas *ya* untuk menyetujui atau *tidak* untuk membatalkan."
-        );
-        return;
-      }
-      if (session.step === "confirm") {
-        if (text.trim().toLowerCase() === "ya") {
-          const nrp = session.user_id;
-          await userModel.updateUserField(nrp, "whatsapp", senderWa);
-          const user = await userModel.findUserById(nrp);
-          await waClient.sendMessage(
-            chatId,
-            `✅ Nomor WhatsApp berhasil dihubungkan ke NRP *${nrp}*.\n` +
-              `${formatUserSummary(user)}`
-          );
-          delete waBindSessions[chatId];
-          return;
-        }
-        if (text.trim().toLowerCase() === "tidak") {
-          delete waBindSessions[chatId];
-          await waClient.sendMessage(chatId, "Baik, proses dibatalkan. Silakan masukkan NRP Anda untuk melanjutkan.");
-          waBindSessions[chatId] = { step: "ask_nrp" };
-          setBindTimeout(chatId);
-          return;
-        }
-        await waClient.sendMessage(chatId, "Balas *ya* untuk menyetujui, atau *tidak* untuk membatalkan.");
-        return;
-      }
-    } else {
-      // Don't auto-start bind session if user just timed out or canceled a session
-      if (isInTimeoutCooldown(chatId)) {
-        return;
-      }
-      waBindSessions[chatId] = { step: "ask_nrp" };
-      setBindTimeout(chatId);
-      await waClient.sendMessage(
-        chatId,
-        "🤖 Maaf, perintah yang Anda kirim belum dikenali. Silakan masukkan NRP Anda untuk melanjutkan proses binding akun atau balas *batal* untuk keluar:"
-      );
-      return;
-    }
+  if (!operatorRow && normalizedUserWaId) {
+    superAdminRow = await findBySuperAdmin(normalizedUserWaId);
+  }
+  const accessRow = operatorRow || superAdminRow;
+  if (accessRow) {
+    operatorOptionSessions[chatId] = {};
+    setOperatorOptionTimeout(chatId);
+    const salam = getGreeting();
+    const roleLabel = operatorRow ? "operator" : "super admin";
+    await safeSendMessage(
+      waClient,
+      chatId,
+      `${salam}! Nomor ini terdaftar sebagai *${roleLabel}* untuk client *${
+        accessRow.nama || accessRow.client_id
+      }*.` +
+        "\n1️⃣ Menu Operator" +
+        "\n2️⃣ Perubahan Data Username" +
+        "\nBalas angka *1* atau *2*."
+    );
+    return;
   }
 
-  // Untuk user lama (pesan tidak dikenal)
-  const helpInstruction = allowUserMenu
-    ? "Untuk melihat daftar perintah dan bantuan penggunaan, silakan ketik *userrequest*."
-    : "Untuk melihat daftar perintah dan bantuan penggunaan, silakan hubungi nomor *WA-USER* dan ketik *userrequest*.";
-  await waClient.sendMessage(
-    chatId,
-    "🤖 Maaf, perintah yang Anda kirim belum dikenali oleh sistem.\n\n" +
-      helpInstruction +
-      clientInfoText
-  );
-  console.log(`${clientLabel} Message from ${chatId} processed with fallback handler`);
+  if (legacyBindFlowEnabled) {
+    writeRateLimitedWaWarn(
+      `legacy_user_bind_path:${chatId}`,
+      buildWaStructuredLog({
+        label: "WA-USER-MENU",
+        event: "legacy_user_bind_flow_blocked",
+        jid: chatId,
+        flow: userMenuFlowId,
+        message:
+          "Legacy flow knownUserSet/waBindSessions dinonaktifkan untuk user flow. Gunakan user_menu_v2.",
+      })
+    );
+  }
+
+  if (!allowUserMenu || isInTimeoutCooldown(chatId)) {
+    return;
+  }
+
+  await startUserMenuSession();
+  console.log(`${clientLabel} Message from ${chatId} routed to ${userMenuFlowId} fallback`);
   return;
     };
 
@@ -4416,7 +4315,6 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         if (
           reminder.shouldRemind &&
           reminder.message &&
-          hadSessionAtStart &&
           !hasSessionNow
         ) {
           try {
