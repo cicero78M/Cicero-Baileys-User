@@ -129,6 +129,7 @@ Sistem akan menutup sesi dan Anda bisa memulai lagi dengan ketik: **userrequest*
 1. Siapkan informasi yang diperlukan SEBELUM memulai
 2. Balas lebih cepat saat diminta input
 3. Setiap balasan akan memperpanjang sesi
+4. Jika akun WhatsApp sudah tertaut ke nomor lain, lakukan update data personil via web: **https://papiqo.com/claim** atau Telegram bot **Cicero Update**: **https://t.me/cicero_update_bot** (ketik **/menu** lalu ikuti petunjuk).
 
 ### "NRP/NIP saya tidak ditemukan"
 **Penyebab**: NRP/NIP belum terdaftar di sistem.

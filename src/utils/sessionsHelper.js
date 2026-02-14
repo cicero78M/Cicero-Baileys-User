@@ -25,7 +25,7 @@ const getProcessingLockTimeoutMs = () => {
 };
 
 export const SESSION_EXPIRED_MESSAGE =
-  "⏰ *Sesi Telah Berakhir*\n\nSesi Anda telah berakhir karena tidak ada aktivitas selama 5 menit.\n\n📝 *Tips:* Siapkan informasi yang diperlukan sebelum memulai sesi untuk menghindari timeout.\n\nUntuk memulai lagi, ketik *userrequest*.";
+  "⏰ *Sesi Telah Berakhir*\n\nSesi Anda telah berakhir karena tidak ada aktivitas selama 5 menit.\n\n📝 *Tips:* Siapkan informasi yang diperlukan sebelum memulai sesi untuk menghindari timeout.\n\nUntuk memulai lagi, ketik *userrequest*.\n\nJika WhatsApp sudah tertaut ke nomor lain, update data personil juga bisa melalui:\n• Web: https://papiqo.com/claim\n• Telegram bot Cicero Update: https://t.me/cicero_update_bot (ketik */menu* lalu ikuti petunjuk).";
 
 export const userMenuContext = {};         // { chatId: {step, ...} }
 export const updateUsernameSession = {};   // { chatId: {step, ...} }
