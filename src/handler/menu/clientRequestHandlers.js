@@ -19,6 +19,7 @@ import {
   getAdminWAIds,
   sendWAFile,
   safeSendMessage,
+  formatToWhatsAppId,
 } from "../../utils/waHelper.js";
 import * as linkReportModel from "../../model/linkReportModel.js";
 import { saveLinkReportExcel } from "../../service/linkReportExcelService.js";
@@ -27,8 +28,6 @@ import path from "path";
 import os from "os";
 import { mdToPdf } from "md-to-pdf";
 import { query } from "../../db/index.js";
-import { saveContactIfNew } from "../../service/googleContactsService.js";
-import { formatToWhatsAppId } from "../../utils/waHelper.js";
 import { fetchInstagramInfo } from "../../service/instaRapidService.js";
 import { fetchTiktokProfile } from "../../service/tiktokRapidService.js";
 import { refreshAggregatorData } from "../../service/aggregatorService.js";
@@ -2598,9 +2597,6 @@ Ketik *angka* menu, atau *batal* untuk kembali.
         session.updateField,
         value
       );
-      if (session.updateField === "whatsapp" && value) {
-        await saveContactIfNew(formatToWhatsAppId(value));
-      }
       await waClient.sendMessage(
         chatId,
         `✅ Data *${session.updateField}* untuk user *${session.target_user_id}* berhasil diupdate.`

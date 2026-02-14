@@ -27,9 +27,7 @@ Hot reload hanya memantau kode (`app.js` dan folder `src`). Folder data seperti 
 2. **Pengambilan Data** – Cron harian di `src/cron` mengambil postingan Instagram/TikTok, menyimpan like & komentar, lalu menganalisis hashtag.
 3. **Penyimpanan** – Data tersimpan di tabel PostgreSQL seperti `insta_post`, `insta_like`, `tiktok_post`, dll. Struktur lengkap ada di `docs/database_structure.md`.
 4. **Notifikasi** – Modul `waService.js` mengirim laporan harian dan pengingat via WhatsApp sesuai jadwal pada `docs/activity_schedule.md`.
-5. **Sinkronisasi kontak async** – `createHandleMessage` tidak lagi memanggil sinkronisasi Google Contact secara langsung. Nomor pengirim dimasukkan ke BullMQ queue `contact-sync` melalui `enqueueContactSync`, lalu diproses worker dengan deduplikasi Redis TTL (`CONTACT_SYNC_DEDUP_TTL_SEC`) agar nomor sama tidak diproses berulang dalam waktu singkat.
-6. **Pembatasan concurrency Google API** – Worker `contact-sync` memakai concurrency terkontrol (`CONTACT_SYNC_WORKER_CONCURRENCY`) untuk membatasi paralelisme panggilan API Google Contacts dan menjaga stabilitas throughput.
-7. **Antrian (opsional)** – Tugas berat lain tetap dapat dikirim ke RabbitMQ melalui `publishToQueue` di `src/service/rabbitMQService.js`.
+5. **Antrian (opsional)** – Tugas berat dapat dikirim ke RabbitMQ melalui `publishToQueue` di `src/service/rabbitMQService.js`.
 
 ## 4. Fitur WhatsApp Bot
 
@@ -83,16 +81,6 @@ WA_DEBUG_LOGGING=false
 
 # Opsional: test-only, jangan aktifkan di production
 WA_SERVICE_SKIP_INIT=false
-```
-
-Tambahan env untuk sinkronisasi kontak asynchronous:
-
-```bash
-# TTL dedup enqueue per nomor (detik)
-CONTACT_SYNC_DEDUP_TTL_SEC=180
-
-# Batas worker paralel untuk sinkronisasi Google Contact
-CONTACT_SYNC_WORKER_CONCURRENCY=2
 ```
 
 ### Langkah login WA

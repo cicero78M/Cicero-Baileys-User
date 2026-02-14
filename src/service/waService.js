@@ -37,11 +37,6 @@ import {
 } from "../handler/fetchpost/tiktokFetchPost.js";
 import { fetchInstagramProfile } from "./instagramApi.js";
 import { fetchTiktokProfile } from "./tiktokRapidService.js";
-import { authorize, searchByNumbers, saveGoogleContact } from "./googleContactsService.js";
-import {
-  enqueueContactSync,
-  initializeContactSyncWorker,
-} from "./contactSyncQueue.js";
 import { enqueueSend, attachWorker } from "./waOutbox.js";
 import redisClient from "../config/redis.js";
 
@@ -200,7 +195,6 @@ let waOutboxWorker = null;
 let hasCheckedOutboxRedisVersion = false;
 let hasWarnedOutboxRedisVersion = false;
 
-initializeContactSyncWorker();
 
 function normalizeMessagePriority(priorityInput) {
   return String(priorityInput || "high").toLowerCase() === "low" ? "low" : "high";
@@ -1883,17 +1877,6 @@ export function createHandleMessage(waClient, options = {}) {
       savedInWhatsapp: false,
       user: null,
     };
-    // Async contact sync queue for non-group chats (off hot path)
-    if (!chatId.endsWith("@g.us")) {
-      enqueueContactSync(chatId, {
-        source: "createHandleMessage",
-        chatId,
-      }).catch((error) => {
-        console.warn(
-          `${clientLabel} failed to enqueue contact sync for ${chatId}: ${error.message}`
-        );
-      });
-    }
 
     let cachedUserByWa = null;
     let userByWaError = null;
@@ -1951,21 +1934,6 @@ export function createHandleMessage(waClient, options = {}) {
       const user = await getUserByWa();
       result.user = user || null;
 
-      if (user && !savedInDb) {
-        try {
-          const enqueueResult = await enqueueContactSync(chatId, {
-            source: "mutual_reminder",
-            chatId,
-          });
-          if (enqueueResult.enqueued) {
-            savedInDb = true;
-          }
-        } catch (err) {
-          console.error(
-            `${clientLabel} failed to enqueue contact sync for ${chatId}: ${err.message}`
-          );
-        }
-      }
 
       let savedInWhatsapp =
         typeof initialIsMyContact === "boolean" ? initialIsMyContact : null;
@@ -2952,31 +2920,6 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       chatId,
       "❌ Anda tidak memiliki akses ke sistem ini."
     );
-    return;
-  }
-
-  if (text.toLowerCase() === "savecontact") {
-    try {
-      const auth = await authorize();
-      const users = await userModel.getActiveUsersWithWhatsapp();
-      let saved = 0;
-      for (const u of users) {
-        const exists = await searchByNumbers(auth, [u.whatsapp]);
-        if (!exists[u.whatsapp]) {
-          await saveGoogleContact(auth, { name: u.nama, phone: u.whatsapp });
-          saved++;
-        }
-      }
-      await waClient.sendMessage(
-        chatId,
-        `✅ Kontak tersimpan ke Google: ${saved}`
-      );
-    } catch (err) {
-      await waClient.sendMessage(
-        chatId,
-        `❌ Gagal menyimpan kontak: ${err.message}`
-      );
-    }
     return;
   }
 

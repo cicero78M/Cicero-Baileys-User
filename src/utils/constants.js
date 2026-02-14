@@ -49,7 +49,6 @@ export const adminCommands = [
   "denyaccess#",
   "dashrequest",
   "dirrequest",
-  "savecontact",
 ];
 
 export const hariIndo = [
