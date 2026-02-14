@@ -66,6 +66,23 @@ Display formatting utilities:
 - `formatUpdateSuccess()` - Formats success message
 - `formatOptionsList()` - Formats numbered options list
 
+Contoh output report identitas (format sosial media konsisten):
+```
+👤 *Identitas Anda*
+
+*Nama Polres*: POLRES CONTOH
+*Nama*     : BUDI SANTOSO
+*Pangkat*  : AKP
+*NRP/NIP*  : 87020990
+*Satfung*  : BINMAS
+*Jabatan*  : KASAT BINMAS
+*Instagram*: @budi.santoso
+*TikTok*   : @budi.santoso
+*Status*   : 🟢 AKTIF
+```
+
+Jika username Instagram/TikTok kosong, keduanya ditampilkan sebagai `-`.
+
 ## User Flow
 
 ### Input Intent & Debounce Behavior

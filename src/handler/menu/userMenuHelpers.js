@@ -7,6 +7,10 @@
 
 import { appendSubmenuBackInstruction } from './menuPromptHelpers.js';
 
+function formatSocialHandle(value) {
+  return value ? `@${value.replace(/^@/, '')}` : '-';
+}
+
 /**
  * Format user data for display
  * @param {Object} user - User data object
@@ -27,8 +31,8 @@ export function formatUserReport(user) {
     `*Satfung*  : ${user.divisi || '-'}`,
     `*Jabatan*  : ${user.jabatan || '-'}`,
     ...(user.ditbinmas ? [`*Desa Binaan* : ${user.desa || '-'}`] : []),
-    `*Instagram*: ${user.insta ? '@' + user.insta.replace(/^@/, '') : '-'}`,
-    `*TikTok*   : ${user.tiktok || '-'}`,
+    `*Instagram*: ${formatSocialHandle(user.insta)}`,
+    `*TikTok*   : ${formatSocialHandle(user.tiktok)}`,
     `*Status*   : ${statusIcon} ${statusText}`,
   ]
     .join('\n')
@@ -47,8 +51,8 @@ export function getFieldInfo(fieldKey, user) {
     pangkat: { displayName: 'Pangkat', value: user?.title || '-' },
     satfung: { displayName: 'Satfung', value: user?.divisi || '-' },
     jabatan: { displayName: 'Jabatan', value: user?.jabatan || '-' },
-    insta: { displayName: 'Instagram', value: user?.insta ? `@${user.insta}` : '-' },
-    tiktok: { displayName: 'TikTok', value: user?.tiktok || '-' },
+    insta: { displayName: 'Instagram', value: formatSocialHandle(user?.insta) },
+    tiktok: { displayName: 'TikTok', value: formatSocialHandle(user?.tiktok) },
     desa: { displayName: 'Desa Binaan', value: user?.desa || '-' },
   };
   
