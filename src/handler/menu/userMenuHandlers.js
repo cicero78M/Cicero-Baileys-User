@@ -45,8 +45,6 @@ const UPDATE_ASK_FIELD_MAX_RETRY = 3;
 const REPEATED_INVALID_INPUT_FEEDBACK =
   "⏳ Input sama terdeteksi, mohon tunggu respon sebelumnya atau ketik *menu*.";
 const REPEATED_INVALID_INPUT_FEEDBACK_COOLDOWN_MS = 2500;
-const EMPTY_INPUT_FEEDBACK =
-  "Input belum terbaca. Silakan jawab sesuai menu aktif atau ketik *batal*.";
 
 const getMenuRetryFallbackMessage = (maxOption) =>
   [
@@ -94,12 +92,8 @@ const sendRepeatedInvalidInputFeedback = async (session, step, chatId, waClient)
   await waClient.sendMessage(chatId, REPEATED_INVALID_INPUT_FEEDBACK);
 };
 
-const sendEmptyInputFeedback = async (session, step, chatId, waClient) => {
-  if (!waClient || !shouldSendRepeatedInputFeedback(session, `empty:${step}`)) {
-    return;
-  }
-
-  await waClient.sendMessage(chatId, EMPTY_INPUT_FEEDBACK);
+const sendEmptyInputFeedback = async () => {
+  return;
 };
 
 export const closeSession = async (
@@ -251,7 +245,7 @@ export const userMenuHandlers = {
   inputUserId: async (session, chatId, text, waClient, pool, userModel) => {
     const lower = text.trim().toLowerCase();
     
-    // Empty input gets micro-feedback with cooldown to avoid flooding.
+    // Empty input is ignored to keep the conversation focused on active menu responses.
     if (!lower) {
       await sendEmptyInputFeedback(session, "inputUserId", chatId, waClient);
       return;
@@ -341,7 +335,7 @@ export const userMenuHandlers = {
   confirmBindUser: async (session, chatId, text, waClient, pool, userModel) => {
     const answer = normalizeUserMenuText(text);
     
-    // Empty input gets micro-feedback with cooldown to avoid flooding.
+    // Empty input is ignored to keep the conversation focused on active menu responses.
     if (!answer) {
       await sendEmptyInputFeedback(session, "confirmBindUser", chatId, waClient);
       return;
@@ -478,7 +472,7 @@ export const userMenuHandlers = {
 
     const lower = normalizeUserMenuText(text);
     
-    // Empty input gets micro-feedback with cooldown to avoid flooding.
+    // Empty input is ignored to keep the conversation focused on active menu responses.
     if (!lower) {
       await sendEmptyInputFeedback(session, "updateAskField", chatId, waClient);
       return;
@@ -599,7 +593,7 @@ export const userMenuHandlers = {
   updateAskValue: async (session, chatId, text, waClient, pool, userModel) => {
     const lower = text.trim().toLowerCase();
     
-    // Empty input gets micro-feedback with cooldown to avoid flooding.
+    // Empty input is ignored to keep the conversation focused on active menu responses.
     if (!lower) {
       await sendEmptyInputFeedback(session, "updateAskValue", chatId, waClient);
       return;
@@ -751,7 +745,7 @@ export const userMenuHandlers = {
   tanyaUpdateMyData: async (session, chatId, text, waClient, pool, userModel) => {
     const answer = normalizeUserMenuText(text);
     
-    // Empty input gets micro-feedback with cooldown to avoid flooding.
+    // Empty input is ignored to keep the conversation focused on active menu responses.
     if (!answer) {
       await sendEmptyInputFeedback(session, "tanyaUpdateMyData", chatId, waClient);
       return;
