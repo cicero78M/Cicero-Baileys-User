@@ -446,7 +446,7 @@ describe("userMenuHandlers conversational flow", () => {
     );
   });
 
-  it("stays silent when inputUserId receives empty message", async () => {
+  it("sends micro-feedback when inputUserId receives empty message", async () => {
     const session = { step: "inputUserId" };
     const userModel = {
       findUserById: jest.fn(),
@@ -461,11 +461,14 @@ describe("userMenuHandlers conversational flow", () => {
       userModel
     );
 
-    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      "Input belum terbaca. Silakan jawab sesuai menu aktif atau ketik *batal*."
+    );
     expect(session.exit).toBeUndefined();
   });
 
-  it("stays silent when inputUserId receives whitespace only", async () => {
+  it("does not spam micro-feedback for repeated empty input in inputUserId cooldown window", async () => {
     const session = { step: "inputUserId" };
     const userModel = {
       findUserById: jest.fn(),
@@ -480,11 +483,24 @@ describe("userMenuHandlers conversational flow", () => {
       userModel
     );
 
-    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    await userMenuHandlers.inputUserId(
+      session,
+      chatId,
+      "	",
+      waClient,
+      null,
+      userModel
+    );
+
+    expect(waClient.sendMessage).toHaveBeenCalledTimes(1);
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      "Input belum terbaca. Silakan jawab sesuai menu aktif atau ketik *batal*."
+    );
     expect(session.exit).toBeUndefined();
   });
 
-  it("stays silent when confirmBindUser receives empty message", async () => {
+  it("sends micro-feedback when confirmBindUser receives empty message", async () => {
     const session = { step: "confirmBindUser", bindUserId: "123456" };
 
     await userMenuHandlers.confirmBindUser(
@@ -496,7 +512,10 @@ describe("userMenuHandlers conversational flow", () => {
       null
     );
 
-    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      "Input belum terbaca. Silakan jawab sesuai menu aktif atau ketik *batal*."
+    );
     expect(session.exit).toBeUndefined();
   });
 
@@ -516,7 +535,7 @@ describe("userMenuHandlers conversational flow", () => {
     expect(session.exit).toBeUndefined();
   });
 
-  it("stays silent when tanyaUpdateMyData receives empty message", async () => {
+  it("sends micro-feedback when tanyaUpdateMyData receives empty message", async () => {
     const session = {};
 
     await userMenuHandlers.tanyaUpdateMyData(
@@ -528,7 +547,10 @@ describe("userMenuHandlers conversational flow", () => {
       null
     );
 
-    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      "Input belum terbaca. Silakan jawab sesuai menu aktif atau ketik *batal*."
+    );
     expect(session.exit).toBeUndefined();
   });
 
@@ -564,7 +586,7 @@ describe("userMenuHandlers conversational flow", () => {
     expect(session.exit).toBeUndefined();
   });
 
-  it("stays silent when updateAskField receives empty message", async () => {
+  it("sends micro-feedback when updateAskField receives empty message", async () => {
     const session = { isDitbinmas: false };
 
     await userMenuHandlers.updateAskField(
@@ -576,11 +598,14 @@ describe("userMenuHandlers conversational flow", () => {
       null
     );
 
-    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      "Input belum terbaca. Silakan jawab sesuai menu aktif atau ketik *batal*."
+    );
     expect(session.exit).toBeUndefined();
   });
 
-  it("stays silent when updateAskValue receives empty message", async () => {
+  it("sends micro-feedback when updateAskValue receives empty message", async () => {
     const session = { updateUserId: "123", updateField: "nama" };
 
     await userMenuHandlers.updateAskValue(
@@ -592,11 +617,14 @@ describe("userMenuHandlers conversational flow", () => {
       null
     );
 
-    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      "Input belum terbaca. Silakan jawab sesuai menu aktif atau ketik *batal*."
+    );
     expect(session.exit).toBeUndefined();
   });
 
-  it("stays silent when tanyaUpdateMyData receives whitespace-only message", async () => {
+  it("does not spam micro-feedback for repeated whitespace in tanyaUpdateMyData cooldown window", async () => {
     const session = {};
 
     await userMenuHandlers.tanyaUpdateMyData(
@@ -608,7 +636,20 @@ describe("userMenuHandlers conversational flow", () => {
       null
     );
 
-    expect(waClient.sendMessage).not.toHaveBeenCalled();
+    await userMenuHandlers.tanyaUpdateMyData(
+      session,
+      chatId,
+      " 	 ",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).toHaveBeenCalledTimes(1);
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      "Input belum terbaca. Silakan jawab sesuai menu aktif atau ketik *batal*."
+    );
     expect(session.exit).toBeUndefined();
   });
 
