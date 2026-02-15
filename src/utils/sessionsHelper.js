@@ -14,7 +14,7 @@ const BIND_TIMEOUT = 2 * 60 * 1000; // 2 menit
 const NO_REPLY_TIMEOUT = 120 * 1000; // 120 detik (ditingkatkan dari 90 detik)
 const USER_REQUEST_LINK_TIMEOUT = 2 * 60 * 1000; // 2 menit
 const AUTO_START_COOLDOWN = 30 * 1000; // 30 detik cooldown setelah timeout
-const DEFAULT_PROCESSING_LOCK_TIMEOUT_MS = 30 * 1000;
+const DEFAULT_PROCESSING_LOCK_TIMEOUT_MS = 50 * 1000;
 
 const getProcessingLockTimeoutMs = () => {
   const rawTimeoutMs = env.WA_PROCESSING_LOCK_TIMEOUT_MS;

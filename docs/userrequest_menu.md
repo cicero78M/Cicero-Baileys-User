@@ -51,8 +51,8 @@ Centralized validation logic:
 #### 3. userMenuIntentParser.js
 Intent parser khusus menu interaktif user:
 - `normalizeUserMenuText()` - Normalisasi input (trim, lowercase, hapus zero-width/control characters)
+- `parseNumericSelectionIntent()` - Parsing pilihan angka tunggal/multi dengan guard range sesuai opsi menu, plus toleransi angka konteks (mis. quote/timestamp) selama hanya ada satu kandidat yang valid di rentang menu
 - `parseAffirmativeNegativeIntent()` - Mapping sinonim jawaban dengan toleransi punctuation ringan dan frasa singkat (contoh: `ya.`, `ya kak`, `ok ya`)
-- `parseNumericSelectionIntent()` - Parser numerik eksplisit yang bisa membedakan single-select vs multi-select
 - `parseNumericOptionIntent()` - Wrapper kompatibilitas untuk pilihan numerik single (`1..n`)
 - `isDebouncedRepeatedInput()` - Debounce input invalid berulang pada step yang sama (default 2.5 detik)
 - `getIntentParserHint()` - Format pesan invalid yang menampilkan menu aktif + contoh jawaban
