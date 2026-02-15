@@ -84,19 +84,31 @@ export const parseNumericSelectionIntent = (
     return { type: "invalid" };
   }
 
-  const hasOutOfRange = parsed.some((value) => value < 1 || value > maxOption);
-  if (hasOutOfRange) {
+  const inRangeValues = parsed.filter(
+    (value) => value >= 1 && value <= maxOption
+  );
+
+  if (!inRangeValues.length) {
     return { type: "out_of_range", values: parsed };
   }
 
-  if (parsed.length > 1) {
-    if (!allowBatch) {
-      return { type: "multi_not_supported", values: parsed };
-    }
-    return { type: "multi", values: parsed };
+  if (!allowBatch && inRangeValues.length === 1) {
+    return {
+      type: "single",
+      value: inRangeValues[0],
+      values: inRangeValues,
+      ignoredValues: parsed.filter((value) => !inRangeValues.includes(value)),
+    };
   }
 
-  return { type: "single", value: parsed[0], values: parsed };
+  if (inRangeValues.length > 1) {
+    if (!allowBatch) {
+      return { type: "multi_not_supported", values: inRangeValues };
+    }
+    return { type: "multi", values: inRangeValues };
+  }
+
+  return { type: "single", value: inRangeValues[0], values: inRangeValues };
 };
 
 export const parseNumericOptionIntent = (text = "", maxOption = 0) => {

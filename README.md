@@ -236,7 +236,7 @@ Application logs are timestamped using the Asia/Jakarta timezone by the console 
     WA_AUTH_CLEAR_SESSION_ON_REINIT=false
     WA_DEBUG_LOGGING=false
     WA_SERVICE_SKIP_INIT=false
-    WA_PROCESSING_LOCK_TIMEOUT_MS=30000
+    WA_PROCESSING_LOCK_TIMEOUT_MS=50000
     ENABLE_DIRREQUEST_GROUP=true
     CORS_ORIGIN=http://localhost:3000
     ALLOW_DUPLICATE_REQUESTS=false
@@ -271,7 +271,7 @@ Application logs are timestamped using the Asia/Jakarta timezone by the console 
    `WA_AUTH_DATA_PATH` is the auth storage root; runtime stores auth data at `<WA_AUTH_DATA_PATH>/session-<USER_WA_CLIENT_ID>`. If not set, the adapter defaults to `~/.cicero/baileys_auth`.
    `WA_AUTH_CLEAR_SESSION_ON_REINIT=true` forces clearing the session folder before reinit.
    `WA_SERVICE_SKIP_INIT=true` is test-only and disables message reception.
-   `WA_PROCESSING_LOCK_TIMEOUT_MS` mengatur timeout lock pemrosesan per chat (default `30000` ms, minimum aman `5000` ms). Naikkan bertahap jika warning timeout lock sering muncul saat beban valid tinggi.
+   `WA_PROCESSING_LOCK_TIMEOUT_MS` mengatur timeout lock pemrosesan per chat (default `50000` ms, minimum aman `5000` ms). Naikkan bertahap jika warning timeout lock sering muncul saat beban valid tinggi.
 
 ### Current Runtime Truth (WhatsApp)
 
