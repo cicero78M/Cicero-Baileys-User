@@ -1,6 +1,6 @@
 # User Request Menu - Documentation
 
-Last updated: 2026-02-16
+Last updated: 2026-02-17
 
 ## Overview
 
@@ -65,6 +65,7 @@ Display formatting utilities:
 - `formatFieldUpdatePrompt()` - Formats update prompt with current value
 - `formatUpdateSuccess()` - Formats success message
 - `formatOptionsList()` - Formats numbered options list
+- Untuk field **Satfung/Divisi**, opsi diambil dinamis dari tabel `"user"` berdasarkan `client_id` user yang sedang update (mis. user `ditintelkam` hanya melihat satfung milik `ditintelkam`). Nilai dideduplikasi dengan normalisasi `TRIM + UPPER` agar tidak ada duplikasi beda kapital/spasi.
 
 Contoh output report identitas (format sosial media konsisten):
 ```
@@ -179,7 +180,7 @@ Jika username Instagram/TikTok kosong, keduanya ditampilkan sebagai `-`.
 | NRP/NIP | 6 digits | 18 digits | Satu kandidat angka (Unicode digit variants are normalized; pemisah terbatas di dalam kandidat diperbolehkan) | Menolak konteks campuran seperti `1/2`/quote/timestamp; harus ada di database |
 | Nama | 2 chars | 100 chars | Uppercase (auto-converted) | - |
 | Pangkat | - | - | From predefined list | Case-insensitive match |
-| Satfung | - | - | Dari daftar satfung pada `client_id` user yang sama | Case-insensitive match |
+| Satfung | - | - | Dari daftar satfung pada `client_id` user yang sama (hasil deduplikasi + normalisasi trim/uppercase dari data user aktif pada client tersebut) | Case-insensitive match |
 | Jabatan | 2 chars | 100 chars | Uppercase (auto-converted) | - |
 | Instagram | 1 char | 30 chars | Lowercase alphanumeric | No reserved usernames, no duplicates |
 | TikTok | 1 char | 30 chars | Lowercase alphanumeric | No duplicates |
