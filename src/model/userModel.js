@@ -684,21 +684,44 @@ export async function getAvailableTitles() {
 
 // Ambil daftar Satfung unik dari database
 export async function getAvailableSatfung(clientId = null, roleFilter = null) {
-  // Gunakan "user" (pakai kutip dua) karena user adalah reserved word di Postgres
-  let res;
+  // Satfung harus mengikuti data user pada client_id yang sama.
+  // Divisi dinormalisasi (trim + uppercase) agar duplikasi karena beda casing/spasi terhapus.
   if (clientId) {
-    const { clause, params } = await buildClientFilter(clientId, '"user"', 1, roleFilter);
+    const res = await query(
+      `SELECT DISTINCT UPPER(TRIM(divisi)) AS divisi
+       FROM "user"
+       WHERE divisi IS NOT NULL
+         AND TRIM(divisi) <> ''
+         AND client_id = $1
+       ORDER BY UPPER(TRIM(divisi))`,
+      [clientId]
+    );
+    return res.rows.map((r) => r.divisi).filter(Boolean);
+  }
+
+  // Fallback untuk caller lama yang tidak mengirim client_id.
+  let res;
+  if (roleFilter) {
+    const { clause, params } = await buildClientFilter(roleFilter, '"user"', 1, roleFilter);
     res = await query(
-      `SELECT DISTINCT divisi FROM "user" WHERE divisi IS NOT NULL AND ${clause} ORDER BY divisi`,
+      `SELECT DISTINCT UPPER(TRIM(divisi)) AS divisi
+       FROM "user"
+       WHERE divisi IS NOT NULL
+         AND TRIM(divisi) <> ''
+         AND ${clause}
+       ORDER BY UPPER(TRIM(divisi))`,
       params
     );
   } else {
     res = await query(
-      'SELECT DISTINCT divisi FROM "user" WHERE divisi IS NOT NULL ORDER BY divisi'
+      `SELECT DISTINCT UPPER(TRIM(divisi)) AS divisi
+       FROM "user"
+       WHERE divisi IS NOT NULL
+         AND TRIM(divisi) <> ''
+       ORDER BY UPPER(TRIM(divisi))`
     );
   }
-  const divisions = res.rows.map((r) => r.divisi).filter(Boolean);
-  return divisions;
+  return res.rows.map((r) => r.divisi).filter(Boolean);
 }
 
 // --- Tambahkan fungsi createUser ---
