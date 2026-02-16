@@ -20,6 +20,7 @@ let updateUser;
 let deactivateRoleOrUser;
 let getUserRoles;
 let getUsersByClientAndRole;
+let getAvailableSatfung;
 
 beforeAll(async () => {
   const mod = await import('../src/model/userModel.js');
@@ -37,6 +38,7 @@ beforeAll(async () => {
   deactivateRoleOrUser = mod.deactivateRoleOrUser;
   getUserRoles = mod.getUserRoles;
   getUsersByClientAndRole = mod.getUsersByClientAndRole;
+  getAvailableSatfung = mod.getAvailableSatfung;
 });
 
 beforeEach(() => {
@@ -448,4 +450,30 @@ test('getUsersByClient includes whatsapp and email fields', async () => {
   const sql = mockQuery.mock.calls[1][0];
   expect(sql).toContain('u.whatsapp');
   expect(sql).toContain('u.email');
+});
+
+
+test('getAvailableSatfung returns only divisions from matching client data', async () => {
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
+    .mockResolvedValueOnce({ rows: [{ divisi: 'BINMAS' }, { divisi: 'SATINTELKAM' }] });
+
+  const satfung = await getAvailableSatfung('C1');
+
+  expect(satfung).toEqual(['BINMAS', 'SATINTELKAM']);
+  expect(mockQuery.mock.calls[1][0]).toContain('SELECT DISTINCT divisi');
+  expect(mockQuery.mock.calls[1][0]).toContain('"user".client_id = $1');
+  expect(mockQuery.mock.calls[1][1]).toEqual(['C1']);
+});
+
+test('getAvailableSatfung for direktorat uses role filter and no static fallback', async () => {
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ client_type: 'direktorat' }] })
+    .mockResolvedValueOnce({ rows: [{ divisi: 'SUBBID PID' }] });
+
+  const satfung = await getAvailableSatfung('ditbinmas');
+
+  expect(satfung).toEqual(['SUBBID PID']);
+  expect(mockQuery.mock.calls[1][0]).toContain('JOIN roles r ON ur.role_id = r.role_id');
+  expect(mockQuery.mock.calls[1][1]).toEqual(['ditbinmas']);
 });

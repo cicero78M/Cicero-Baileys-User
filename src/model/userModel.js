@@ -698,7 +698,7 @@ export async function getAvailableSatfung(clientId = null, roleFilter = null) {
     );
   }
   const divisions = res.rows.map((r) => r.divisi).filter(Boolean);
-  return mergeStaticDivisions(divisions);
+  return divisions;
 }
 
 // --- Tambahkan fungsi createUser ---

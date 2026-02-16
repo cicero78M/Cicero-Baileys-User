@@ -571,9 +571,7 @@ export const userMenuHandlers = {
         const user = await userModel.findUserById(session.updateUserId);
         clientId = user?.client_id || null;
       } catch (e) { console.error('[updateAskField] Error fetching clientId:', e); }
-      const satfung = userModel.mergeStaticDivisions(
-        await userModel.getAvailableSatfung(clientId)
-      );
+      const satfung = await userModel.getAvailableSatfung(clientId);
       if (satfung && satfung.length) {
         const sorted = sortDivisionKeys(satfung);
         session.availableSatfung = sorted;
@@ -651,9 +649,7 @@ export const userMenuHandlers = {
         } catch (e) { 
           console.error('[updateAskValue] Error fetching clientId:', e); 
         }
-        const satfungList = userModel.mergeStaticDivisions(
-          session.availableSatfung || (await userModel.getAvailableSatfung(clientId))
-        );
+        const satfungList = session.availableSatfung || (await userModel.getAvailableSatfung(clientId));
         const validation = validateListSelection(value, satfungList);
         if (!validation.valid) {
           await waClient.sendMessage(chatId, validation.error);
