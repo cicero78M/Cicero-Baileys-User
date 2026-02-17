@@ -12,20 +12,6 @@ Modul `respondComplaint` menyampaikan langkah tindak lanjut kepada pelapor saat 
 
 Catatan: Narasi lama yang menyebut "Absensi Amplifikasi" sudah diganti agar selaras dengan terminologi likes/komentar di Instagram dan TikTok.
 
-
-## Deteksi akun private pada respon komplain
-- Sistem menandai akun Instagram sebagai **private** saat data profil menunjukkan status private (`Aktif (Privat)`).
-- Sistem menandai akun TikTok sebagai **private** bila profil terbaca aktif tetapi metrik utama kosong, termasuk pola berikut:
-  ```
-  🎵 TikTok @username
-  Status: Aktif
-  Video: -
-  Followers: -
-  Following: -
-  Likes: -
-  ```
-- Untuk akun Instagram/TikTok yang terdeteksi private, respon komplain otomatis menambahkan arahan agar akun diubah menjadi **public** terlebih dahulu supaya aktivitas dapat terbaca oleh Cicero.
-
 ## Perilaku sesi setelah respon
 - Setelah pesan komplain dibalas dan ringkasan admin dikirim, sesi menu *Client Request* ditutup otomatis.
 - Penutupan sesi mencegah pengiriman ulang pesan menu utama seperti:
