@@ -91,6 +91,21 @@ function buildSuspiciousAccountNote(platform, handle) {
   ].join("\n");
 }
 
+function isTiktokPrivateMetrics({ posts, followers, following, likes }) {
+  return [posts, followers, following, likes].every(
+    (value) => value === null || value === undefined
+  );
+}
+
+function buildPrivateAccountPublicInstruction(platform, handle) {
+  const decoratedHandle = handle ? `*${handle}*` : "tersebut";
+  const label = platform === "instagram" ? "Instagram" : "TikTok";
+  return [
+    `🔒 Akun ${label} ${decoratedHandle} terdeteksi *private*.`,
+    `Silakan ubah akun ${label} menjadi *public* terlebih dahulu agar aktivitas dapat terbaca sistem Cicero.`,
+  ].join("\n");
+}
+
 function ensureHandle(value) {
   if (!value) return "";
   const trimmed = String(value).trim();
@@ -316,12 +331,14 @@ async function verifyInstagramHandle(handle) {
       data.media_count ?? data.posts_count ?? data.edge_owner_to_timeline_media?.count ?? null;
     const state = data.is_private === true ? "Aktif (Privat)" : "Aktif";
 
+    const isPrivate = data.is_private === true;
     const status = {
       found: Boolean(data),
       posts: mediaCount,
       followers: followerCount,
       following: followingCount,
       state,
+      isPrivate,
     };
 
     return {
@@ -360,6 +377,15 @@ async function verifyTiktokHandle(handle) {
     const likeCount = data.like_count ?? data.stats?.heart ?? null;
     const videoCount = data.video_count ?? data.stats?.videoCount ?? null;
     const state = data.username || data.nickname ? "Aktif" : "";
+    const isPrivate =
+      Boolean(data.username || data.nickname || data.stats) &&
+      isTiktokPrivateMetrics({
+        posts: videoCount,
+        followers: followerCount,
+        following: followingCount,
+        likes: likeCount,
+      });
+    const resolvedState = isPrivate ? "Aktif (Privat)" : state || "Aktif";
 
     const status = {
       found: Boolean(data.username || data.nickname || data.stats),
@@ -367,7 +393,8 @@ async function verifyTiktokHandle(handle) {
       followers: followerCount,
       following: followingCount,
       likes: likeCount,
-      state: state || "Aktif",
+      state: resolvedState,
+      isPrivate,
     };
 
     return {
@@ -407,6 +434,7 @@ export async function buildAccountStatus(user) {
       error: "",
       summaryForSolution: "",
       reviewNote: "",
+      isPrivate: false,
     },
     tiktok: {
       username: "",
@@ -419,6 +447,7 @@ export async function buildAccountStatus(user) {
       error: "",
       summaryForSolution: "",
       reviewNote: "",
+      isPrivate: false,
     },
   };
 
@@ -450,18 +479,21 @@ export async function buildAccountStatus(user) {
         null;
       const state = data.is_private === true ? "Aktif (Privat)" : "Aktif";
 
+      const isPrivate = data.is_private === true;
       Object.assign(result.instagram, {
         found: true,
         posts: mediaCount,
         followers: followerCount,
         following: followingCount,
         state,
+        isPrivate,
         summaryForSolution: buildPlatformSummary(`Instagram (${instaHandle})`, {
           found: true,
           posts: mediaCount,
           followers: followerCount,
           following: followingCount,
           state,
+          isPrivate,
         }),
       });
 
@@ -481,6 +513,17 @@ export async function buildAccountStatus(user) {
       ) {
         const note = buildSuspiciousAccountNote("instagram", instaHandle);
         result.instagram.reviewNote = note;
+        result.instagram.summaryForSolution = result.instagram.summaryForSolution
+          ? `${result.instagram.summaryForSolution}\n\n${note}`
+          : note;
+        lines.push("", note);
+      }
+
+      if (isPrivate) {
+        const note = buildPrivateAccountPublicInstruction("instagram", instaHandle);
+        result.instagram.reviewNote = result.instagram.reviewNote
+          ? `${result.instagram.reviewNote}\n\n${note}`
+          : note;
         result.instagram.summaryForSolution = result.instagram.summaryForSolution
           ? `${result.instagram.summaryForSolution}\n\n${note}`
           : note;
@@ -517,6 +560,15 @@ export async function buildAccountStatus(user) {
       const likeCount = data.like_count ?? data.stats?.heart ?? null;
       const videoCount = data.video_count ?? data.stats?.videoCount ?? null;
       const state = data.username || data.nickname ? "Aktif" : "";
+      const isPrivate =
+        Boolean(data.username || data.nickname || data.stats) &&
+        isTiktokPrivateMetrics({
+          posts: videoCount,
+          followers: followerCount,
+          following: followingCount,
+          likes: likeCount,
+        });
+      const resolvedState = isPrivate ? "Aktif (Privat)" : state || "Aktif";
 
       Object.assign(result.tiktok, {
         found: Boolean(data.username || data.nickname || data.stats),
@@ -524,21 +576,23 @@ export async function buildAccountStatus(user) {
         followers: followerCount,
         following: followingCount,
         likes: likeCount,
-        state: state || "Aktif",
+        state: resolvedState,
+        isPrivate,
         summaryForSolution: buildPlatformSummary(`TikTok (${tiktokHandle})`, {
           found: Boolean(data.username || data.nickname || data.stats),
           posts: videoCount,
           followers: followerCount,
           following: followingCount,
           likes: likeCount,
-          state: state || "Aktif",
+          state: resolvedState,
+          isPrivate,
         }),
       });
 
       lines.push(
         "",
         `🎵 TikTok *${tiktokHandle}*`,
-        `Status: ${state || "Aktif"}`,
+        `Status: ${resolvedState}`,
         `Video: ${formatNumber(videoCount)}`,
         `Followers: ${formatNumber(followerCount)}`,
         `Following: ${formatNumber(followingCount)}`,
@@ -554,6 +608,17 @@ export async function buildAccountStatus(user) {
       ) {
         const note = buildSuspiciousAccountNote("tiktok", tiktokHandle);
         result.tiktok.reviewNote = note;
+        result.tiktok.summaryForSolution = result.tiktok.summaryForSolution
+          ? `${result.tiktok.summaryForSolution}\n\n${note}`
+          : note;
+        lines.push("", note);
+      }
+
+      if (isPrivate) {
+        const note = buildPrivateAccountPublicInstruction("tiktok", tiktokHandle);
+        result.tiktok.reviewNote = result.tiktok.reviewNote
+          ? `${result.tiktok.reviewNote}\n\n${note}`
+          : note;
         result.tiktok.summaryForSolution = result.tiktok.summaryForSolution
           ? `${result.tiktok.summaryForSolution}\n\n${note}`
           : note;
@@ -653,6 +718,8 @@ async function buildInstagramIssueSolution(issueText, parsed, user, accountStatu
   const dbActive = dbFound && hasFullMetrics(dbStatus);
   const complaintFound = Boolean(complaintCheck.status?.found);
   const complaintActive = complaintFound && hasFullMetrics(complaintCheck.status);
+  const privateAccountDetected =
+    Boolean(dbStatus?.isPrivate) || Boolean(complaintCheck.status?.isPrivate);
   const actions = [];
   const rapidMetricsEmpty = !dbActive && !complaintActive;
 
@@ -697,6 +764,13 @@ async function buildInstagramIssueSolution(issueText, parsed, user, accountStatu
     }
     actions.push(
       "- Setelah dikonfirmasi, ulangi satu like atau komentar pada konten resmi dengan akun yang bersifat publik, lalu tunggu sinkronisasi ±1 jam sebelum pengecekan ulang."
+    );
+  }
+
+  if (privateAccountDetected) {
+    actions.push("", "Pengaturan privasi akun:");
+    actions.push(
+      "- Akun Instagram terdeteksi private. Ubah akun menjadi public terlebih dahulu agar proses pembacaan aktivitas oleh Cicero berjalan normal."
     );
   }
 
@@ -791,6 +865,8 @@ async function buildTiktokIssueSolution(issueText, parsed, user, accountStatus) 
   const hasRecordedComment = typeof commentCount === "number" && commentCount > 0;
   const activeButNoCommentRecord = (dbActive || complaintActive) && !hasRecordedComment;
   const needsHandleUpdate = !handlesMatch || !dbHandle;
+  const privateAccountDetected =
+    Boolean(dbStatus?.isPrivate) || Boolean(complaintCheck.status?.isPrivate);
   const actions = [];
 
   const decoratedHandle = treatAsSameHandle
@@ -838,6 +914,13 @@ async function buildTiktokIssueSolution(issueText, parsed, user, accountStatus) 
     actions.push("", "Pembaruan username:");
     actions.push("- Jika username di database perlu disesuaikan, lakukan pembaruan berikut:");
     actions.push(buildUpdateDataInstructions("TikTok"));
+  }
+
+  if (privateAccountDetected) {
+    actions.push("", "Pengaturan privasi akun:");
+    actions.push(
+      "- Akun TikTok terdeteksi private. Ubah akun menjadi public terlebih dahulu agar proses pembacaan komentar oleh Cicero berjalan normal."
+    );
   }
 
   actions.push("", "Eskalasi:");
