@@ -414,24 +414,47 @@ describe("userMenuHandlers conversational flow", () => {
     const userModel = {
       findUserById: jest.fn().mockResolvedValue({
         user_id: "123",
-        tiktok: "03031578",
+        tiktok_2: "second.account",
       }),
     };
 
     await userMenuHandlers.updateAskField(
       session,
       chatId,
-      "angka 6",
+      "angka 8",
       waClient,
       null,
       userModel
     );
 
-    expect(session.updateField).toBe("tiktok");
+    expect(session.updateField).toBe("tiktok_2");
     expect(session.step).toBe("updateAskValue");
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      expect.stringContaining("*Update TikTok*")
+      expect.stringContaining("*Update TikTok Kedua*")
+    );
+  });
+
+  
+  it("shows secondary social account options in update field list", async () => {
+    const session = { user_id: "123", isDitbinmas: false };
+
+    await userMenuHandlers.confirmUserByWaUpdate(
+      session,
+      chatId,
+      "ya",
+      waClient,
+      null,
+      null
+    );
+
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("Instagram Kedua")
+    );
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("TikTok Kedua")
     );
   });
 
