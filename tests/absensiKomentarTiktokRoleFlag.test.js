@@ -34,6 +34,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  delete process.env.ENABLE_MULTI_SOCIAL_MATCHING;
+  delete process.env.ENABLE_USER_SOCIAL_ACCOUNTS_FALLBACK;
 });
 
 test('uses getUsersByDirektorat when roleFlag is a directorate', async () => {
@@ -45,4 +47,30 @@ test('uses getUsersByDirektorat when roleFlag is a directorate', async () => {
 
   expect(mockGetUsersByDirektorat).toHaveBeenCalledWith('ditbinmas');
   expect(mockGetUsersByClient).not.toHaveBeenCalled();
+});
+
+test('regression: primary-only tiktok user keeps previous attendance result', async () => {
+  process.env.ENABLE_MULTI_SOCIAL_MATCHING = 'true';
+  process.env.ENABLE_USER_SOCIAL_ACCOUNTS_FALLBACK = 'true';
+
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ nama: 'POLRES ABC', client_tiktok: '@abc', client_type: 'org' }] })
+    .mockResolvedValueOnce({ rows: [] });
+  mockGetUsersByClient.mockResolvedValueOnce([
+    {
+      user_id: 'U1',
+      nama: 'Budi',
+      title: 'BRIPKA',
+      divisi: 'SAT BINMAS',
+      tiktok: '@primarytt',
+      status: true,
+    },
+  ]);
+  mockGetPostsTodayByClient.mockResolvedValueOnce([{ video_id: 'VID1' }]);
+  mockGetCommentsByVideoId.mockResolvedValueOnce({ comments: [{ username: 'primarytt' }] });
+
+  const msg = await absensiKomentar('POLRESABC', {});
+
+  expect(msg).toContain('• Personel mencapai target : 1/1 (100%)');
+  expect(msg).toContain('📎 ❌ *Lampiran – Personel belum mencapai target* (0 user)');
 });

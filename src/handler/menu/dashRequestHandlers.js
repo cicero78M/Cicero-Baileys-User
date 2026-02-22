@@ -6,6 +6,10 @@ import { absensiKomentar } from "../fetchabsensi/tiktok/absensiKomentarTiktok.js
 import { findClientById } from "../../service/clientService.js";
 import { getGreeting, sortDivisionKeys, formatNama } from "../../utils/utilsHelper.js";
 import { appendSubmenuBackInstruction } from "./menuPromptHelpers.js";
+import {
+  fetchSocialAccountsByUserIds,
+  getUsernamesForPlatform,
+} from "../../utils/userSocialAccountHelper.js";
 
 async function formatRekapUserData(clientId, roleFlag = null) {
   const filterRole = ["ditbinmas", "ditlantas", "bidhumas"].includes(
@@ -15,6 +19,11 @@ async function formatRekapUserData(clientId, roleFlag = null) {
     : null;
   const client = await findClientById(clientId);
   const users = await getUsersSocialByClient(clientId, filterRole);
+  const igSocialMap = await fetchSocialAccountsByUserIds(users, "instagram");
+  const ttSocialMap = await fetchSocialAccountsByUserIds(users, "tiktok");
+  const hasInstagram = (u) =>
+    getUsernamesForPlatform(u, "instagram", igSocialMap).size > 0;
+  const hasTiktok = (u) => getUsernamesForPlatform(u, "tiktok", ttSocialMap).size > 0;
   const salam = getGreeting();
   const now = new Date();
   const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
@@ -35,7 +44,7 @@ async function formatRekapUserData(clientId, roleFlag = null) {
       const cid = u.client_id;
       if (!groups[cid]) groups[cid] = { total: 0, miss: 0 };
       groups[cid].total++;
-      if (!u.insta || !u.tiktok) groups[cid].miss++;
+      if (!hasInstagram(u) || !hasTiktok(u)) groups[cid].miss++;
     });
 
       const entries = await Promise.all(
@@ -88,13 +97,13 @@ async function formatRekapUserData(clientId, roleFlag = null) {
   users.forEach((u) => {
     const div = u.divisi || "-";
     const nama = formatNama(u);
-    if (u.insta && u.tiktok) {
+    if (hasInstagram(u) && hasTiktok(u)) {
       if (!complete[div]) complete[div] = [];
       complete[div].push(nama);
     } else {
       const missing = [];
-      if (!u.insta) missing.push("Instagram kosong");
-      if (!u.tiktok) missing.push("TikTok kosong");
+      if (!hasInstagram(u)) missing.push("Instagram kosong");
+      if (!hasTiktok(u)) missing.push("TikTok kosong");
       if (!incomplete[div]) incomplete[div] = [];
       incomplete[div].push(`${nama}, ${missing.join(", ")}`);
     }

@@ -7,6 +7,10 @@ import {
   getLikesSets,
   groupUsersByClientDivision,
 } from "../../utils/likesHelper.js";
+import {
+  fetchSocialAccountsByUserIds,
+  getUsernamesForPlatform,
+} from "../../utils/userSocialAccountHelper.js";
 
 const clientInfoCache = new Map();
 
@@ -97,6 +101,7 @@ export async function calculateDitbinmasStats(data) {
 
   for (const cid of clientIds) {
     const users = usersByClient[cid] || [];
+    const igSocialMap = await fetchSocialAccountsByUserIds(users, "instagram");
     const already = [];
     const partial = [];
     const none = [];
@@ -105,14 +110,16 @@ export async function calculateDitbinmasStats(data) {
 
     users.forEach((u) => {
       if (!u.tiktok) noTiktok++;
-      if (!u.insta || u.insta.trim() === "") {
+      const socialUsernames = getUsernamesForPlatform(u, "instagram", igSocialMap);
+      if (!socialUsernames.size) {
         noUname.push(u);
         return;
       }
-      const uname = normalizeUsername(u.insta);
       let count = 0;
       likesSets.forEach((set) => {
-        if (set.has(uname)) count += 1;
+        if ([...socialUsernames].some((uname) => set.has(normalizeUsername(uname)))) {
+          count += 1;
+        }
       });
       if (count === shortcodes.length) already.push({ ...u, count });
       else if (count > 0) partial.push({ ...u, count });
@@ -592,4 +599,3 @@ export async function lapharDitbinmas(clientId = "DITBINMAS") {
     textBelum,
   };
 }
-
