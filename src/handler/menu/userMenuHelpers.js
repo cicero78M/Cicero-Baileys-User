@@ -51,8 +51,10 @@ export function getFieldInfo(fieldKey, user) {
     pangkat: { displayName: 'Pangkat', value: user?.title || '-' },
     satfung: { displayName: 'Satfung', value: user?.divisi || '-' },
     jabatan: { displayName: 'Jabatan', value: user?.jabatan || '-' },
-    insta: { displayName: 'Instagram', value: formatSocialHandle(user?.insta) },
-    tiktok: { displayName: 'TikTok', value: formatSocialHandle(user?.tiktok) },
+    insta: { displayName: 'Instagram Utama', value: formatSocialHandle(user?.insta) },
+    insta_2: { displayName: 'Instagram Kedua', value: formatSocialHandle(user?.insta_2) },
+    tiktok: { displayName: 'TikTok Utama', value: formatSocialHandle(user?.tiktok) },
+    tiktok_2: { displayName: 'TikTok Kedua', value: formatSocialHandle(user?.tiktok_2) },
     desa: { displayName: 'Desa Binaan', value: user?.desa || '-' },
   };
   
@@ -73,8 +75,10 @@ export function formatFieldList(showDesa = false) {
 2️⃣ Pangkat
 3️⃣ Satfung
 4️⃣ Jabatan
-5️⃣ Instagram
-6️⃣ TikTok${showDesa ? '\n7️⃣ Desa Binaan' : ''}
+5️⃣ Instagram Utama
+6️⃣ Instagram Kedua
+7️⃣ TikTok Utama
+8️⃣ TikTok Kedua${showDesa ? '\n9️⃣ Desa Binaan' : ''}
 
 📝 Balas dengan *angka* (contoh: 1) atau ketik *batal* untuk keluar.
 
@@ -97,7 +101,9 @@ export function formatFieldUpdatePrompt(fieldKey, displayName, currentValue) {
     satfung: '💡 Pilih dari daftar di atas menggunakan angka atau ketik nama satfung',
     jabatan: '💡 Contoh: KASAT BINMAS',
     insta: '💡 Contoh: https://instagram.com/username atau @username',
+    insta_2: '💡 Contoh: https://instagram.com/username atau @username',
     tiktok: '💡 Contoh: https://tiktok.com/@username atau @username',
+    tiktok_2: '💡 Contoh: https://tiktok.com/@username atau @username',
     desa: '💡 Contoh: DESA SUKAMAJU',
   };
   
@@ -158,8 +164,10 @@ export function getFieldDisplayName(dbField) {
     desa: 'Desa Binaan',
     nama: 'Nama',
     jabatan: 'Jabatan',
-    insta: 'Instagram',
-    tiktok: 'TikTok',
+    insta: 'Instagram Utama',
+    insta_2: 'Instagram Kedua',
+    tiktok: 'TikTok Utama',
+    tiktok_2: 'TikTok Kedua',
     whatsapp: 'WhatsApp',
   };
   

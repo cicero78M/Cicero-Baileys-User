@@ -463,8 +463,10 @@ export const userMenuHandlers = {
       { key: "pangkat", label: "Pangkat" },
       { key: "satfung", label: "Satfung" },
       { key: "jabatan", label: "Jabatan" },
-      { key: "insta", label: "Instagram" },
-      { key: "tiktok", label: "TikTok" },
+      { key: "insta", label: "Instagram Utama" },
+      { key: "insta_2", label: "Instagram Kedua" },
+      { key: "tiktok", label: "TikTok Utama" },
+      { key: "tiktok_2", label: "TikTok Kedua" },
     ];
     if (session.isDitbinmas) {
       allowedFields.push({ key: "desa", label: "Desa Binaan" });
@@ -656,34 +658,46 @@ export const userMenuHandlers = {
           return;
         }
         value = validation.selected;
-      } else if (dbField === "insta") {
+      } else if (dbField === "insta" || dbField === "insta_2") {
         const validation = validateInstagram(value);
         if (!validation.valid) {
           await waClient.sendMessage(chatId, validation.error);
           return;
         }
         value = validation.username;
-        
-        // Check for duplicate Instagram
-        const existing = await userModel.findUserByInsta(value);
-        if (existing && existing.user_id !== user_id) {
+
+        // Check for duplicate Instagram across primary+secondary accounts
+        const [existingPrimary, existingSecondary] = await Promise.all([
+          userModel.findUserByInsta(value),
+          userModel.findUserByInsta2 ? userModel.findUserByInsta2(value) : null,
+        ]);
+        const existing = [existingPrimary, existingSecondary].find(
+          (user) => user && user.user_id !== user_id
+        );
+        if (existing) {
           await waClient.sendMessage(
             chatId,
             `❌ Instagram *@${value}* sudah terdaftar pada pengguna lain. Silakan gunakan akun lain atau ketik *batal* untuk membatalkan.`
           );
           return;
         }
-      } else if (dbField === "tiktok") {
+      } else if (dbField === "tiktok" || dbField === "tiktok_2") {
         const validation = validateTikTok(value);
         if (!validation.valid) {
           await waClient.sendMessage(chatId, validation.error);
           return;
         }
         value = validation.username;
-        
-        // Check for duplicate TikTok
-        const existing = await userModel.findUserByTiktok(value);
-        if (existing && existing.user_id !== user_id) {
+
+        // Check for duplicate TikTok across primary+secondary accounts
+        const [existingPrimary, existingSecondary] = await Promise.all([
+          userModel.findUserByTiktok(value),
+          userModel.findUserByTiktok2 ? userModel.findUserByTiktok2(value) : null,
+        ]);
+        const existing = [existingPrimary, existingSecondary].find(
+          (user) => user && user.user_id !== user_id
+        );
+        if (existing) {
           await waClient.sendMessage(
             chatId,
             `❌ TikTok *@${value}* sudah terdaftar pada pengguna lain. Silakan gunakan akun lain atau ketik *batal* untuk membatalkan.`
@@ -714,7 +728,7 @@ export const userMenuHandlers = {
       
       // Format display value
       const committedValue = session.lastProcessedInput?.value ?? value;
-      const displayValue = (dbField === "insta" || dbField === "tiktok")
+      const displayValue = (["insta", "insta_2", "tiktok", "tiktok_2"].includes(dbField))
         ? `@${String(committedValue).replace(/^@/, '')}`
         : committedValue;
       const fieldDisplayName = getFieldDisplayName(dbField);

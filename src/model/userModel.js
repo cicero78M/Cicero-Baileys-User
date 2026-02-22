@@ -469,7 +469,9 @@ export async function updateUserField(user_id, field, value) {
   const uid = normalizeUserId(user_id);
   const allowed = [
     "insta",
+    "insta_2",
     "tiktok",
+    "tiktok_2",
     "whatsapp",
     "email",
     "exception",
@@ -630,10 +632,30 @@ export async function findUserByInsta(insta) {
   return rows[0];
 }
 
+
+export async function findUserByInsta2(insta) {
+  if (!insta) return null;
+  const { rows } = await query(
+      `SELECT u.*,\n      c.nama AS client_name,\n      bool_or(r.role_name='ditbinmas') AS ditbinmas,\n      bool_or(r.role_name='ditlantas') AS ditlantas,\n      bool_or(r.role_name='bidhumas') AS bidhumas,\n      bool_or(r.role_name='ditsamapta') AS ditsamapta,\n      bool_or(r.role_name='ditintelkam') AS ditintelkam,\n      bool_or(r.role_name='operator') AS operator\n     FROM "user" u\n     LEFT JOIN clients c ON c.client_id = u.client_id\n     LEFT JOIN user_roles ur ON u.user_id = ur.user_id\n     LEFT JOIN roles r ON ur.role_id = r.role_id\n     WHERE LOWER(u.insta_2) = LOWER($1)\n     GROUP BY u.user_id, c.nama`,
+    [insta]
+  );
+  return rows[0];
+}
+
 export async function findUserByTiktok(tiktok) {
   if (!tiktok) return null;
   const { rows } = await query(
       `SELECT u.*,\n      c.nama AS client_name,\n      bool_or(r.role_name='ditbinmas') AS ditbinmas,\n      bool_or(r.role_name='ditlantas') AS ditlantas,\n      bool_or(r.role_name='bidhumas') AS bidhumas,\n      bool_or(r.role_name='ditsamapta') AS ditsamapta,\n      bool_or(r.role_name='ditintelkam') AS ditintelkam,\n      bool_or(r.role_name='operator') AS operator\n     FROM "user" u\n     LEFT JOIN clients c ON c.client_id = u.client_id\n     LEFT JOIN user_roles ur ON u.user_id = ur.user_id\n     LEFT JOIN roles r ON ur.role_id = r.role_id\n     WHERE LOWER(u.tiktok) = LOWER($1)\n     GROUP BY u.user_id, c.nama`,
+    [tiktok]
+  );
+  return rows[0];
+}
+
+
+export async function findUserByTiktok2(tiktok) {
+  if (!tiktok) return null;
+  const { rows } = await query(
+      `SELECT u.*,\n      c.nama AS client_name,\n      bool_or(r.role_name='ditbinmas') AS ditbinmas,\n      bool_or(r.role_name='ditlantas') AS ditlantas,\n      bool_or(r.role_name='bidhumas') AS bidhumas,\n      bool_or(r.role_name='ditsamapta') AS ditsamapta,\n      bool_or(r.role_name='ditintelkam') AS ditintelkam,\n      bool_or(r.role_name='operator') AS operator\n     FROM "user" u\n     LEFT JOIN clients c ON c.client_id = u.client_id\n     LEFT JOIN user_roles ur ON u.user_id = ur.user_id\n     LEFT JOIN roles r ON ur.role_id = r.role_id\n     WHERE LOWER(u.tiktok_2) = LOWER($1)\n     GROUP BY u.user_id, c.nama`,
     [tiktok]
   );
   return rows[0];

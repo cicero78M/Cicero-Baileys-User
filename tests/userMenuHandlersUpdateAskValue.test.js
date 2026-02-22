@@ -15,7 +15,9 @@ describe("userMenuHandlers.updateAskValue social media normalization", () => {
     userModel = {
       updateUserField: jest.fn().mockResolvedValue(),
       findUserByInsta: jest.fn().mockResolvedValue(null),
+      findUserByInsta2: jest.fn().mockResolvedValue(null),
       findUserByTiktok: jest.fn().mockResolvedValue(null),
+      findUserByTiktok2: jest.fn().mockResolvedValue(null),
     };
     jest.spyOn(userMenuHandlers, "main").mockResolvedValue();
   });
@@ -85,6 +87,76 @@ describe("userMenuHandlers.updateAskValue social media normalization", () => {
     );
   });
 
+  test.each([
+    ["https://www.instagram.com/Second.User"],
+    ["@Second.User"],
+  ])("normalizes Instagram kedua input %s to lowercase username", async (input) => {
+    const session = buildSession("insta_2");
+
+    await userMenuHandlers.updateAskValue(
+      session,
+      chatId,
+      input,
+      waClient,
+      pool,
+      userModel
+    );
+
+    expect(userModel.findUserByInsta).toHaveBeenCalledWith("second.user");
+    expect(userModel.findUserByInsta2).toHaveBeenCalledWith("second.user");
+    expect(userModel.updateUserField).toHaveBeenCalledWith(
+      "12345",
+      "insta_2",
+      "second.user"
+    );
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("*Instagram Kedua* untuk NRP/NIP *12345* berhasil diupdate menjadi *@second.user*.")
+    );
+  });
+
+  it("rejects Instagram kedua update when username already used in primary account by different user", async () => {
+    const session = buildSession("insta_2");
+    userModel.findUserByInsta.mockResolvedValue({ user_id: "99999" });
+
+    await userMenuHandlers.updateAskValue(
+      session,
+      chatId,
+      "@duplicate.user",
+      waClient,
+      pool,
+      userModel
+    );
+
+    expect(userModel.updateUserField).not.toHaveBeenCalled();
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("❌ Instagram *@duplicate.user* sudah terdaftar pada pengguna lain.")
+    );
+  });
+
+  it("rejects TikTok kedua update when username already used in secondary account by different user", async () => {
+    const session = buildSession("tiktok_2");
+    userModel.findUserByTiktok2.mockResolvedValue({ user_id: "99999" });
+
+    await userMenuHandlers.updateAskValue(
+      session,
+      chatId,
+      "@duplicate.user",
+      waClient,
+      pool,
+      userModel
+    );
+
+    expect(userModel.findUserByTiktok).toHaveBeenCalledWith("duplicate.user");
+    expect(userModel.findUserByTiktok2).toHaveBeenCalledWith("duplicate.user");
+    expect(userModel.updateUserField).not.toHaveBeenCalled();
+    expect(waClient.sendMessage).toHaveBeenCalledWith(
+      chatId,
+      expect.stringContaining("❌ TikTok *@duplicate.user* sudah terdaftar pada pengguna lain.")
+    );
+  });
+
   it("rejects TikTok update when username already used by different user", async () => {
     const session = buildSession("tiktok");
     userModel.findUserByTiktok.mockResolvedValue({ user_id: "99999" });
@@ -149,7 +221,7 @@ describe("userMenuHandlers.updateAskValue social media normalization", () => {
     expect(session.lastProcessedAt).toEqual(expect.any(String));
     expect(waClient.sendMessage).toHaveBeenCalledWith(
       chatId,
-      expect.stringContaining("*Instagram* untuk NRP/NIP *12345* berhasil diupdate menjadi *@final.valid*.")
+      expect.stringContaining("*Instagram Utama* untuk NRP/NIP *12345* berhasil diupdate menjadi *@final.valid*.")
     );
   });
 });
