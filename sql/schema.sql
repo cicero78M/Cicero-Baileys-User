@@ -83,6 +83,35 @@ BEFORE UPDATE ON "user"
 FOR EACH ROW
 EXECUTE PROCEDURE set_user_updated_at();
 
+CREATE TABLE user_social_accounts (
+  social_account_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id VARCHAR NOT NULL REFERENCES "user"(user_id) ON DELETE CASCADE,
+  platform TEXT NOT NULL CHECK (platform IN ('instagram', 'tiktok')),
+  username TEXT NOT NULL,
+  account_order SMALLINT NOT NULL DEFAULT 1 CHECK (account_order >= 1),
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, platform, account_order)
+);
+
+CREATE UNIQUE INDEX user_social_accounts_platform_username_lower_unique
+ON user_social_accounts (platform, LOWER(username));
+
+CREATE OR REPLACE FUNCTION set_user_social_accounts_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS user_social_accounts_set_updated_at ON user_social_accounts;
+CREATE TRIGGER user_social_accounts_set_updated_at
+BEFORE UPDATE ON user_social_accounts
+FOR EACH ROW
+EXECUTE PROCEDURE set_user_social_accounts_updated_at();
+
 CREATE TABLE penmas_user (
   user_id TEXT PRIMARY KEY,
   username TEXT UNIQUE NOT NULL,
