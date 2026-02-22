@@ -16,6 +16,10 @@ import {
 } from "../../../utils/utilsHelper.js";
 import { sendDebug } from "../../../middleware/debugHandler.js";
 import { sortUsersByPositionRankAndName } from "../../../utils/sortingHelper.js";
+import {
+  fetchSocialAccountsByUserIds,
+  getUsernamesForPlatform,
+} from "../../../utils/userSocialAccountHelper.js";
 
 const JAKARTA_TIMEZONE = "Asia/Jakarta";
 
@@ -190,6 +194,7 @@ export async function absensiKomentar(client_id, opts = {}) {
   users.forEach((u) => {
     userStats[u.user_id] = { ...u, count: 0 };
   });
+  const userSocialMap = await fetchSocialAccountsByUserIds(users, "tiktok");
 
   const failedVideoIds = [];
   const commentSets = await Promise.all(
@@ -228,11 +233,8 @@ export async function absensiKomentar(client_id, opts = {}) {
 
   commentSets.forEach((commentSet) => {
     users.forEach((u) => {
-      if (
-        u.tiktok &&
-        u.tiktok.trim() !== "" &&
-        commentSet.has(u.tiktok.replace(/^@/, "").toLowerCase())
-      ) {
+      const socialUsernames = getUsernamesForPlatform(u, "tiktok", userSocialMap);
+      if ([...socialUsernames].some((uname) => commentSet.has(uname))) {
         userStats[u.user_id].count += 1;
       }
     });
@@ -246,7 +248,8 @@ export async function absensiKomentar(client_id, opts = {}) {
       {
         totalTarget: totalKonten,
         getCount: (u) => u.count || 0,
-        hasUsername: (u) => !!(u.tiktok && u.tiktok.trim() !== ""),
+        hasUsername: (u) =>
+          getUsernamesForPlatform(u, "tiktok", userSocialMap).size > 0,
       }
     );
 

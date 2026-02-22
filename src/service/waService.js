@@ -102,6 +102,10 @@ import {
   formatUserData,
 } from "../utils/utilsHelper.js";
 import {
+  fetchSocialAccountsByUserIds,
+  getUsernamesForPlatform,
+} from "../utils/userSocialAccountHelper.js";
+import {
   handleComplaintMessageIfApplicable,
 } from "./waAutoComplaintService.js";
 import {
@@ -3513,6 +3517,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
     users.forEach((u) => {
       userStats[u.user_id] = { ...u, count: 0 };
     });
+    const igSocialMap = await fetchSocialAccountsByUserIds(users, "instagram");
 
     const likesLists = await Promise.all(
       shortcodes.map((sc) => getLikesByShortcode(sc))
@@ -3522,7 +3527,8 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
         (likes || []).map((l) => (l || "").toLowerCase())
       );
       users.forEach((u) => {
-        if (u.insta && likesSet.has(u.insta.toLowerCase())) {
+        const socialUsernames = getUsernamesForPlatform(u, "instagram", igSocialMap);
+        if ([...socialUsernames].some((uname) => likesSet.has(uname))) {
           userStats[u.user_id].count += 1;
         }
       });
@@ -3534,8 +3540,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       if (u.exception) {
         sudah.push(u); // Selalu masuk sudah, apapun kondisinya
       } else if (
-        u.insta &&
-        u.insta.trim() !== "" &&
+        getUsernamesForPlatform(u, "instagram", igSocialMap).size > 0 &&
         u.count >= threshold
       ) {
         sudah.push(u);
@@ -3689,6 +3694,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
     users.forEach((u) => {
       userStats[u.user_id] = { ...u, count: 0 };
     });
+    const ttSocialMap = await fetchSocialAccountsByUserIds(users, "tiktok");
 
     for (const post of posts) {
       const video_id = post.video_id || post.id;
@@ -3700,8 +3706,8 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       const usernameSet = new Set(commentsArr);
 
       users.forEach((u) => {
-        const tiktokUsername = (u.tiktok || "").replace(/^@/, "").toLowerCase();
-        if (u.tiktok && usernameSet.has(tiktokUsername)) {
+        const socialUsernames = getUsernamesForPlatform(u, "tiktok", ttSocialMap);
+        if ([...socialUsernames].some((uname) => usernameSet.has(uname))) {
           userStats[u.user_id].count += 1;
         }
       });
@@ -3713,8 +3719,7 @@ Ketik *angka menu* di atas, atau *batal* untuk keluar.
       if (u.exception) {
         sudah.push(u); // Selalu masuk sudah, apapun kondisinya
       } else if (
-        u.tiktok &&
-        u.tiktok.trim() !== "" &&
+        getUsernamesForPlatform(u, "tiktok", ttSocialMap).size > 0 &&
         u.count >= Math.ceil(totalKonten / 2)
       ) {
         sudah.push(u);

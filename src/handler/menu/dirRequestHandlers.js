@@ -65,6 +65,10 @@ import { syncSatbinmasOfficialTiktokSecUidForOrgClients } from "../../service/sa
 import { generateInstagramAllDataRecap } from "../../service/instagramAllDataRecapService.js";
 import { generateTiktokAllDataRecap } from "../../service/tiktokAllDataRecapService.js";
 import { appendSubmenuBackInstruction } from "./menuPromptHelpers.js";
+import {
+  fetchSocialAccountsByUserIds,
+  getUsernamesForPlatform,
+} from "../../utils/userSocialAccountHelper.js";
 
 const dirRequestGroup = "120363419830216549@g.us";
 const DITBINMAS_CLIENT_ID = "DITBINMAS";
@@ -368,6 +372,11 @@ async function formatRekapUserData(clientId, roleFlag = null) {
     ? normalizedRoleFlag
     : null;
   const users = await getUsersSocialByClient(clientId, filterRole);
+  const igSocialMap = await fetchSocialAccountsByUserIds(users, "instagram");
+  const ttSocialMap = await fetchSocialAccountsByUserIds(users, "tiktok");
+  const hasInstagram = (u) =>
+    getUsernamesForPlatform(u, "instagram", igSocialMap).size > 0;
+  const hasTiktok = (u) => getUsernamesForPlatform(u, "tiktok", ttSocialMap).size > 0;
   const salam = getGreeting();
   const now = new Date();
   const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
@@ -391,9 +400,9 @@ async function formatRekapUserData(clientId, roleFlag = null) {
       const cid = (u.client_id || "").toLowerCase();
       if (!groups[cid]) groups[cid] = { total: 0, insta: 0, tiktok: 0, complete: 0 };
       groups[cid].total++;
-      if (u.insta) groups[cid].insta++;
-      if (u.tiktok) groups[cid].tiktok++;
-      if (u.insta && u.tiktok) groups[cid].complete++;
+      if (hasInstagram(u)) groups[cid].insta++;
+      if (hasTiktok(u)) groups[cid].tiktok++;
+      if (hasInstagram(u) && hasTiktok(u)) groups[cid].complete++;
     });
 
     const roleName = (filterRole || clientId).toLowerCase();
@@ -522,13 +531,13 @@ async function formatRekapUserData(clientId, roleFlag = null) {
   const incomplete = {};
   users.forEach((u) => {
     const div = u.divisi || "-";
-    if (u.insta && u.tiktok) {
+    if (hasInstagram(u) && hasTiktok(u)) {
       if (!complete[div]) complete[div] = [];
       complete[div].push(u);
     } else {
       const missing = [];
-      if (!u.insta) missing.push("Instagram kosong");
-      if (!u.tiktok) missing.push("TikTok kosong");
+      if (!hasInstagram(u)) missing.push("Instagram kosong");
+      if (!hasTiktok(u)) missing.push("TikTok kosong");
       if (!incomplete[div]) incomplete[div] = [];
       incomplete[div].push({ ...u, missing: missing.join(", ") });
     }

@@ -41,5 +41,7 @@ export const env = cleanEnv(process.env, {
   GOOGLE_CONTACT_SCOPE: str({
     default: 'https://www.googleapis.com/auth/contacts'
   }),
-  DASHBOARD_PREMIUM_ALLOWED_TIERS: str({ default: 'tier1,tier2,premium_1' })
+  DASHBOARD_PREMIUM_ALLOWED_TIERS: str({ default: 'tier1,tier2,premium_1' }),
+  ENABLE_USER_SOCIAL_ACCOUNTS_FALLBACK: bool({ default: false }),
+  ENABLE_MULTI_SOCIAL_MATCHING: bool({ default: false })
 });

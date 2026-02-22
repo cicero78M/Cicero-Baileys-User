@@ -3,6 +3,10 @@ import { getUsersByClient, getUsersByDirektorat } from "../../../model/userModel
 import { getShortcodesTodayByClient } from "../../../model/instaPostModel.js";
 import { hariIndo } from "../../../utils/constants.js";
 import { groupByDivision, sortDivisionKeys } from "../../../utils/utilsHelper.js";
+import {
+  fetchSocialAccountsByUserIds,
+  getUsernamesForPlatform,
+} from "../../../utils/userSocialAccountHelper.js";
 
 function normalizeUsername(username) {
   return (username || "")
@@ -59,16 +63,14 @@ export async function absensiKomentarInstagram(client_id, opts = {}) {
   users.forEach((u) => {
     userStats[u.user_id] = { ...u, count: 0 };
   });
+  const userSocialMap = await fetchSocialAccountsByUserIds(users, "instagram");
 
   for (const sc of shortcodes) {
     const usernames = await getCommentsUsernamesByShortcode(sc);
     const set = new Set(usernames);
     users.forEach((u) => {
-      if (
-        u.insta &&
-        u.insta.trim() !== "" &&
-        set.has(normalizeUsername(u.insta))
-      ) {
+      const socialUsernames = getUsernamesForPlatform(u, "instagram", userSocialMap);
+      if ([...socialUsernames].some((uname) => set.has(uname))) {
         userStats[u.user_id].count += 1;
       }
     });
@@ -81,8 +83,7 @@ export async function absensiKomentarInstagram(client_id, opts = {}) {
     if (u.exception === true) {
       sudah.push(u);
     } else if (
-      u.insta &&
-      u.insta.trim() !== "" &&
+      getUsernamesForPlatform(u, "instagram", userSocialMap).size > 0 &&
       u.count >= threshold
     ) {
       sudah.push(u);
@@ -164,4 +165,3 @@ export async function absensiKomentarInstagram(client_id, opts = {}) {
 }
 
 export default absensiKomentarInstagram;
-
