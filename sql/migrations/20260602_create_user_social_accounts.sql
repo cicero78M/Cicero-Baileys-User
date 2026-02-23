@@ -36,17 +36,11 @@ SELECT u.user_id, 'instagram', u.insta, 1, TRUE
 FROM "user" u
 WHERE u.insta IS NOT NULL
   AND btrim(u.insta) <> ''
-ON CONFLICT (user_id, platform, account_order) DO UPDATE
-SET username = EXCLUDED.username,
-    is_active = EXCLUDED.is_active,
-    updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 INSERT INTO user_social_accounts (user_id, platform, username, account_order, is_active)
 SELECT u.user_id, 'tiktok', u.tiktok, 1, TRUE
 FROM "user" u
 WHERE u.tiktok IS NOT NULL
   AND btrim(u.tiktok) <> ''
-ON CONFLICT (user_id, platform, account_order) DO UPDATE
-SET username = EXCLUDED.username,
-    is_active = EXCLUDED.is_active,
-    updated_at = NOW();
+ON CONFLICT DO NOTHING;
