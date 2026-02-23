@@ -46,6 +46,9 @@ const REPEATED_INVALID_INPUT_FEEDBACK =
   "⏳ Input sama terdeteksi, mohon tunggu respon sebelumnya atau ketik *menu*.";
 const REPEATED_INVALID_INPUT_FEEDBACK_COOLDOWN_MS = 2500;
 
+const normalizeSocialUsernameInput = (value) =>
+  String(value || "").trim().replace(/^@/, "").toLowerCase();
+
 const getMenuRetryFallbackMessage = (maxOption) =>
   [
     "⚠️ Input belum sesuai.",
@@ -666,6 +669,16 @@ export const userMenuHandlers = {
         }
         value = validation.username;
 
+        const currentUser = await userModel.findUserById(user_id);
+        const pairInstagram = dbField === "insta" ? currentUser?.insta_2 : currentUser?.insta;
+        if (normalizeSocialUsernameInput(pairInstagram) === normalizeSocialUsernameInput(value)) {
+          await waClient.sendMessage(
+            chatId,
+            "❌ Username Instagram 1 dan 2 tidak boleh sama. Silakan gunakan username berbeda atau ketik *batal* untuk membatalkan."
+          );
+          return;
+        }
+
         // Check for duplicate Instagram across primary+secondary accounts
         const [existingPrimary, existingSecondary] = await Promise.all([
           userModel.findUserByInsta(value),
@@ -688,6 +701,16 @@ export const userMenuHandlers = {
           return;
         }
         value = validation.username;
+
+        const currentUser = await userModel.findUserById(user_id);
+        const pairTiktok = dbField === "tiktok" ? currentUser?.tiktok_2 : currentUser?.tiktok;
+        if (normalizeSocialUsernameInput(pairTiktok) === normalizeSocialUsernameInput(value)) {
+          await waClient.sendMessage(
+            chatId,
+            "❌ Username TikTok 1 dan 2 tidak boleh sama. Silakan gunakan username berbeda atau ketik *batal* untuk membatalkan."
+          );
+          return;
+        }
 
         // Check for duplicate TikTok across primary+secondary accounts
         const [existingPrimary, existingSecondary] = await Promise.all([
