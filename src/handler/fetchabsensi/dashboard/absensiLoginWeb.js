@@ -2,36 +2,62 @@ import { query } from '../../../db/index.js';
 import { getWebLoginCountsByActor } from '../../../model/loginLogModel.js';
 import { getGreeting } from '../../../utils/utilsHelper.js';
 
+const JAKARTA_TIME_ZONE = 'Asia/Jakarta';
 const numberFormatter = new Intl.NumberFormat('id-ID');
-const monthFormatter = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' });
+const monthFormatter = new Intl.DateTimeFormat('id-ID', {
+  month: 'long',
+  year: 'numeric',
+  timeZone: JAKARTA_TIME_ZONE,
+});
+const dateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: JAKARTA_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 
-function startOfDay(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+function toJakartaDate(date) {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error('Tanggal tidak valid');
+  }
+
+  const parts = dateKeyFormatter.formatToParts(parsed);
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  const day = Number(parts.find((part) => part.type === 'day')?.value);
+
+  if (![year, month, day].every((part) => Number.isFinite(part))) {
+    throw new Error('Gagal membaca tanggal WIB');
+  }
+
+  return { year, month, day };
 }
 
-function endOfDay(date) {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
+function startOfJakartaDay(date) {
+  const { year, month, day } = toJakartaDate(date);
+  return new Date(Date.UTC(year, month - 1, day, -7, 0, 0, 0));
 }
 
-function startOfMonth(date) {
-  const d = new Date(date);
-  d.setDate(1);
-  return startOfDay(d);
+function endOfJakartaDay(date) {
+  const { year, month, day } = toJakartaDate(date);
+  return new Date(Date.UTC(year, month - 1, day, 16, 59, 59, 999));
 }
 
-function endOfMonth(date) {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + 1, 0);
-  return endOfDay(d);
+function startOfJakartaMonth(date) {
+  const { year, month } = toJakartaDate(date);
+  return new Date(Date.UTC(year, month - 1, 1, -7, 0, 0, 0));
 }
 
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
+function endOfJakartaMonth(date) {
+  const { year, month } = toJakartaDate(date);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month - 1, lastDay, 16, 59, 59, 999));
+}
+
+function addJakartaDays(date, days) {
+  const d = startOfJakartaDay(date);
+  d.setUTCDate(d.getUTCDate() + days);
   return d;
 }
 
@@ -51,16 +77,18 @@ function resolveRange({ mode, startTime, endTime }) {
   if (!start && !end) {
     const now = new Date();
     if (normalizedMode === 'mingguan') {
-      const day = now.getDay() === 0 ? 6 : now.getDay() - 1;
-      start = startOfDay(addDays(now, -day));
-      end = endOfDay(addDays(start, 6));
+      const jakartaNow = toJakartaDate(now);
+      const day = new Date(Date.UTC(jakartaNow.year, jakartaNow.month - 1, jakartaNow.day)).getUTCDay();
+      const mondayOffset = day === 0 ? 6 : day - 1;
+      start = addJakartaDays(now, -mondayOffset);
+      end = endOfJakartaDay(addJakartaDays(start, 6));
     } else {
-      start = startOfDay(now);
-      end = endOfDay(now);
+      start = startOfJakartaDay(now);
+      end = endOfJakartaDay(now);
     }
   } else {
-    start = start ? startOfDay(start) : startOfDay(end);
-    end = end ? endOfDay(end) : endOfDay(start);
+    start = start ? startOfJakartaDay(start) : startOfJakartaDay(end);
+    end = end ? endOfJakartaDay(end) : endOfJakartaDay(start);
   }
 
   return { start, end, mode: normalizedMode };
@@ -72,14 +100,14 @@ function resolveMonthlyRange({ startTime, endTime }) {
   if (Number.isNaN(parsed.getTime())) {
     throw new Error('Tanggal periode bulanan tidak valid');
   }
-  const start = startOfMonth(baseDate);
-  const end = endOfMonth(baseDate);
+  const start = startOfJakartaMonth(baseDate);
+  const end = endOfJakartaMonth(baseDate);
   return { start, end };
 }
 
 function formatDate(date) {
   return new Date(date).toLocaleDateString('id-ID', {
-    timeZone: 'Asia/Jakarta',
+    timeZone: JAKARTA_TIME_ZONE,
   });
 }
 
