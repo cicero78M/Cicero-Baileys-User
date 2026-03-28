@@ -47,7 +47,7 @@ export async function getShortcodesTodayByClient(client_id) {
   const dd = String(today.getDate()).padStart(2, '0');
   const res = await query(
     `SELECT shortcode FROM insta_post_khusus
-     WHERE client_id = $1 AND DATE(created_at) = $2`,
+     WHERE client_id = $1 AND (created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date`,
     [client_id, `${yyyy}-${mm}-${dd}`]
   );
   return res.rows.map(r => r.shortcode);
@@ -61,7 +61,7 @@ export async function getShortcodesTodayByUsername(username) {
   const dd = String(today.getDate()).padStart(2, '0');
   const res = await query(
     `SELECT p.shortcode FROM insta_post_khusus p JOIN clients c ON c.client_id = p.client_id
-     WHERE c.client_insta = $1 AND DATE(p.created_at) = $2`,
+     WHERE c.client_insta = $1 AND (p.created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date`,
     [username, `${yyyy}-${mm}-${dd}`]
   );
   return res.rows.map(r => r.shortcode);
@@ -70,7 +70,7 @@ export async function getShortcodesTodayByUsername(username) {
 
 export async function getPostsTodayByClient(client_id) {
   const res = await query(
-    `SELECT * FROM insta_post_khusus WHERE client_id = $1 AND created_at::date = NOW()::date`,
+    `SELECT * FROM insta_post_khusus WHERE client_id = $1 AND (created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date`,
     [client_id]
   );
   return res.rows;
@@ -105,11 +105,11 @@ export async function getPostsByClientAndDateRange(
   } else {
     if (startDate) {
       values.push(startDate);
-      text += ` AND created_at::date >= $${values.length}`;
+      text += ` AND (created_at AT TIME ZONE 'Asia/Jakarta')::date >= $${values.length}`;
     }
     if (endDate) {
       values.push(endDate);
-      text += ` AND created_at::date <= $${values.length}`;
+      text += ` AND (created_at AT TIME ZONE 'Asia/Jakarta')::date <= $${values.length}`;
     }
   }
 
