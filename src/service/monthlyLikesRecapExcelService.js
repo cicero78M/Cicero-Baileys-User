@@ -4,6 +4,7 @@ import XLSX from 'xlsx';
 import { hariIndo } from '../utils/constants.js';
 import { getNamaPriorityIndex } from '../utils/sqlPriority.js';
 import { getRekapLikesByClient } from '../model/instaLikeModel.js';
+import { formatJakartaIsoDate } from '../utils/jakartaDateHelper.js';
 
 const RANK_ORDER = [
   'KOMISARIS BESAR POLISI',
@@ -32,7 +33,7 @@ export async function saveMonthlyLikesRecapExcel(clientId) {
   const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   const endDate = new Date(now);
 
-  const formatIso = (d) => d.toISOString().slice(0, 10);
+  const formatIso = (d) => formatJakartaIsoDate(d);
   const formatDisplay = (d) =>
     new Date(d).toLocaleDateString('id-ID', {
       day: '2-digit',
