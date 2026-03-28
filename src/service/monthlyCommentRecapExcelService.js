@@ -6,6 +6,7 @@ import { getNamaPriorityIndex } from '../utils/sqlPriority.js';
 import { getRekapKomentarByClient } from '../model/tiktokCommentModel.js';
 import { countPostsByClient } from '../model/tiktokPostModel.js';
 import { generateSheetName } from '../utils/excelHelper.js';
+import { formatJakartaIsoDate } from '../utils/jakartaDateHelper.js';
 
 const RANK_ORDER = [
   'KOMISARIS BESAR POLISI',
@@ -34,7 +35,7 @@ export async function saveMonthlyCommentRecapExcel(clientId, { regionalId } = {}
   const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   const endDate = new Date(now);
 
-  const formatIso = (d) => d.toISOString().slice(0, 10);
+  const formatIso = (d) => formatJakartaIsoDate(d);
   const formatDisplay = (d) =>
     new Date(d).toLocaleDateString('id-ID', {
       day: '2-digit',

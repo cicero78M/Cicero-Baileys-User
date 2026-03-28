@@ -9,6 +9,7 @@ import { getPostsByClientAndDateRange } from "../model/tiktokPostModel.js";
 import { getCommentsByVideoId } from "../model/tiktokCommentModel.js";
 import { computeDitbinmasLikesStats } from "../handler/fetchabsensi/insta/ditbinmasLikesUtils.js";
 import { hariIndo } from "../utils/constants.js";
+import { formatJakartaIsoDate, formatJakartaTime } from "../utils/jakartaDateHelper.js";
 
 const EXPORT_DIR = path.resolve("export_data/engagement_ranking");
 const PERIOD_DESCRIPTIONS = {
@@ -485,7 +486,7 @@ export async function saveEngagementRankingExcel({
     endDate: customEnd,
   });
 
-  const now = new Date();
+  const now = getJakartaDate();
   const hari = hariIndo[now.getDay()] || now.toLocaleDateString("id-ID", { weekday: "long" });
   const tanggal = now.toLocaleDateString("id-ID", {
     day: "2-digit",
@@ -493,9 +494,7 @@ export async function saveEngagementRankingExcel({
     year: "numeric",
   });
 
-  const jam = String(now.getHours()).padStart(2, "0");
-  const menit = String(now.getMinutes()).padStart(2, "0");
-  const waktuPengambilan = `${jam}.${menit}`;
+  const waktuPengambilan = formatJakartaTime(now, ".");
 
   const aoa = [
     [`Rekap Ranking Engagement ${(clientName || "").toUpperCase()}`],
@@ -667,8 +666,8 @@ export async function saveEngagementRankingExcel({
   XLSX.utils.book_append_sheet(workbook, worksheet, "Ranking Engagement");
 
   await mkdir(EXPORT_DIR, { recursive: true });
-  const dateLabel = now.toISOString().slice(0, 10);
-  const timeLabel = `${jam}${menit}`;
+  const dateLabel = formatJakartaIsoDate(now);
+  const timeLabel = (formatJakartaTime(now, "") || "").padStart(4, "0");
   const clientSlug = sanitizeFilename(clientName || clientId || "Direktorat");
   const periodSlug = sanitizeFilename(
     periodInfo.fileLabel || periodInfo.description || periodInfo.period
