@@ -1,7 +1,24 @@
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import XLSX from 'xlsx';
-import { hariIndo } from '../utils/constants.js';
+
+const WIB_WEEKDAY_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  weekday: 'long',
+});
+const WIB_DATE_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+const WIB_TIME_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
 
 function formatClientName(clientId = '') {
   return clientId
@@ -31,9 +48,11 @@ function buildColumnWidths(headers, rows) {
 function buildExportPath(prefix, clientId) {
   const exportDir = path.resolve('export_data/comment_recap');
   const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString('id-ID');
-  const jam = now.toLocaleTimeString('id-ID', { hour12: false });
+  const formattedWeekday = WIB_WEEKDAY_FORMATTER.format(now);
+  const hari =
+    formattedWeekday.charAt(0).toUpperCase() + formattedWeekday.slice(1);
+  const tanggal = WIB_DATE_FORMATTER.format(now);
+  const jam = WIB_TIME_FORMATTER.format(now);
   const dateSafe = tanggal.replace(/\//g, '-');
   const timeSafe = jam.replace(/[:.]/g, '-');
   const formattedClient = formatClientName(clientId);
@@ -113,4 +132,3 @@ export async function saveCommentRecapPerContentExcel(data, clientId) {
 }
 
 export default saveCommentRecapExcel;
-

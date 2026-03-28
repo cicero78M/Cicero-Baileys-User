@@ -1,7 +1,6 @@
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import XLSX from 'xlsx';
-import { hariIndo } from '../utils/constants.js';
 import { getNamaPriorityIndex } from '../utils/sqlPriority.js';
 import { getRekapLikesByClient } from '../model/instaLikeModel.js';
 import { formatJakartaIsoDate } from '../utils/jakartaDateHelper.js';
@@ -22,6 +21,24 @@ const RANK_ORDER = [
   'BRIPTU',
   'BRIPDA',
 ];
+
+const WIB_WEEKDAY_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  weekday: 'long',
+});
+const WIB_DATE_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+const WIB_TIME_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
 
 function rankWeight(rank) {
   const idx = RANK_ORDER.indexOf(String(rank || '').toUpperCase());
@@ -188,9 +205,11 @@ export async function saveMonthlyLikesRecapExcel(clientId) {
   const exportDir = path.resolve('export_data/monthly_likes');
   await mkdir(exportDir, { recursive: true });
 
-  const hari = hariIndo[endDate.getDay()];
-  const tanggal = endDate.toLocaleDateString('id-ID');
-  const jam = now.toLocaleTimeString('id-ID', { hour12: false });
+  const formattedWeekday = WIB_WEEKDAY_FORMATTER.format(endDate);
+  const hari =
+    formattedWeekday.charAt(0).toUpperCase() + formattedWeekday.slice(1);
+  const tanggal = WIB_DATE_FORMATTER.format(endDate);
+  const jam = WIB_TIME_FORMATTER.format(now);
   const dateSafe = tanggal.replace(/\//g, '-');
   const timeSafe = jam.replace(/[:.]/g, '-');
   const formattedClient = (clientId || '')
